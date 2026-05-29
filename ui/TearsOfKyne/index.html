@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tears of Kyne</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="hud-root">
+      <div id="water-notification" class="water-notification hidden"></div>
+
+      <div id="water-panel" class="water-panel hidden">
+        <div id="water-accent" class="water-accent"></div>
+        <div class="nordic-corner nordic-corner-tl" aria-hidden="true"></div>
+        <div class="nordic-corner nordic-corner-tr" aria-hidden="true"></div>
+        <div class="nordic-corner nordic-corner-bl" aria-hidden="true"></div>
+        <div class="nordic-corner nordic-corner-br" aria-hidden="true"></div>
+        <div class="water-content">
+          <div class="water-header">
+            <div class="water-title-row">
+              <svg class="water-drop" width="12" height="14" viewBox="0 0 12 16" fill="none"><path id="water-drop-shape" d="M6 1L10.5 7.5A5 5 0 1 1 1.5 7.5L6 1Z" fill="#ff8a00"></path></svg>
+              <span id="water-stage" class="water-stage">Quenched</span>
+            </div>
+            <span id="water-difficulty" class="water-difficulty">Medium</span>
+          </div>
+          <div class="nordic-divider" aria-hidden="true"><span></span></div>
+          <div class="water-progress-row">
+            <div class="water-progress-track">
+              <div id="water-progress-fill" class="water-progress-fill"></div>
+            </div>
+            <span id="water-percent" class="water-percent">0%</span>
+          </div>
+          <div id="water-hotkeys" class="water-hotkeys hidden">
+            <div id="fill-hotkey" class="hotkey-badge hidden">
+              <span id="fill-hotkey-key" class="hotkey-key">R</span>
+              <span>Fill</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="simple-widget" class="simple-widget hidden">
+        <div id="simple-drop-shell" class="simple-drop-shell">
+          <svg width="48" height="62" viewBox="0 0 44 58" fill="none">
+            <path id="simple-drop-shape" d="M22 3C22 3 38 22 38 33.5C38 45.9264 30.8366 55 22 55C13.1634 55 6 45.9264 6 33.5C6 22 22 3 22 3Z" fill="#3adb76"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div id="settings-overlay" class="settings-overlay hidden">
+      <div id="settings-window" class="settings-window">
+        <div id="settings-drag-handle" class="settings-topbar">
+          <div>
+            <div class="settings-eyebrow">Tears of Kyne</div>
+            <div class="settings-title">Settings</div>
+          </div>
+          <div class="settings-topbar-actions">
+            <button id="toggle-water-system" class="toggle-switch is-on topbar-toggle" type="button" role="switch" aria-checked="true" aria-label="Toggle water mod">
+              <span class="toggle-switch-track">
+                <span class="toggle-switch-thumb"></span>
+              </span>
+            </button>
+            <button id="settings-close" class="ghost-button" type="button">Close</button>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <section class="settings-card">
+            <div class="card-title">Gameplay</div>
+            <div class="select-row">
+              <span>Widget Style</span>
+              <div id="widget-style" class="custom-select" data-value="0">
+                <button class="custom-select-trigger" type="button">
+                  <span class="custom-select-label">Default</span>
+                  <span class="custom-select-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="custom-select-menu">
+                  <button class="custom-select-option selected" type="button" data-value="0">Default</button>
+                  <button class="custom-select-option" type="button" data-value="1">Simple</button>
+                  <button class="custom-select-option" type="button" data-value="2">Nordic</button>
+                </div>
+              </div>
+            </div>
+            <div class="select-row">
+              <span>Difficulty</span>
+              <div id="difficulty-select" class="custom-select" data-value="2">
+                <button class="custom-select-trigger" type="button">
+                  <span class="custom-select-label">Hard</span>
+                  <span class="custom-select-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="custom-select-menu">
+                  <button class="custom-select-option" type="button" data-value="0">Easy</button>
+                  <button class="custom-select-option" type="button" data-value="1">Medium</button>
+                  <button class="custom-select-option selected" type="button" data-value="2">Hard</button>
+                  <button class="custom-select-option" type="button" data-value="3">Very Hard</button>
+                </div>
+              </div>
+            </div>
+            <div class="select-row">
+              <span>Accessibility</span>
+              <div id="accessibility-select" class="custom-select" data-value="0">
+                <button class="custom-select-trigger" type="button">
+                  <span class="custom-select-label">Default</span>
+                  <span class="custom-select-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="custom-select-menu">
+                  <button class="custom-select-option selected" type="button" data-value="0">Default</button>
+                  <button class="custom-select-option" type="button" data-value="1">Protanopia</button>
+                  <button class="custom-select-option" type="button" data-value="2">Deuteranopia</button>
+                  <button class="custom-select-option" type="button" data-value="3">Tritanopia</button>
+                  <button class="custom-select-option" type="button" data-value="4">Protanomaly</button>
+                  <button class="custom-select-option" type="button" data-value="5">Deuteranomaly</button>
+                </div>
+              </div>
+            </div>
+            <div class="position-copy">Move this settings window by dragging the top bar so it stays where the player wants it.</div>
+          </section>
+          <section class="settings-card">
+            <div class="card-title">Keybinds</div>
+            <div class="bind-row">
+              <span>Fill Waterskin</span>
+              <button id="bind-fill" class="bind-button" type="button">R</button>
+            </div>
+            <div class="bind-row">
+              <span>Open Settings</span>
+              <button id="bind-menu" class="bind-button accent" type="button">F10</button>
+            </div>
+            <div class="bind-row">
+              <span>Toggle HUD</span>
+              <button id="bind-toggle-hud" class="bind-button" type="button">H</button>
+            </div>
+            <div class="bind-hint">Click a bind, then press any key. ESC cancels.</div>
+          </section>
+
+          <section class="settings-card">
+            <div class="card-title">HUD Position</div>
+            <div class="position-copy">Drag the widget itself while this window is open, or use the sliders here.</div>
+
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <span>X Position</span>
+                <span id="hud-x" class="axis-value">24</span>
+              </div>
+              <input id="hud-x-slider" class="position-slider" type="range" min="0" max="1600" step="1" value="24" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <span>Y Position</span>
+                <span id="hud-y" class="axis-value">28</span>
+              </div>
+              <input id="hud-y-slider" class="position-slider" type="range" min="0" max="900" step="1" value="28" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <span>Widget Size</span>
+                <span id="widget-scale-value" class="axis-value">100%</span>
+              </div>
+              <input id="widget-scale-slider" class="position-slider" type="range" min="50" max="150" step="1" value="100" />
+            </div>
+
+            <button id="reset-position" class="solid-button reset-button" type="button">Reset Position</button>
+          </section>
+        </div></div>
+      </div>
+    </div>
+    <div id="disable-confirm-overlay" class="confirm-overlay hidden">
+      <div class="confirm-dialog">
+        <div class="confirm-title">Turn off the water mod?</div>
+        <div class="confirm-copy">Are you sure?</div>
+        <div class="confirm-actions">
+          <button id="disable-confirm-cancel" class="ghost-button" type="button">Cancel</button>
+          <button id="disable-confirm-accept" class="solid-button small" type="button">Turn Off</button>
+        </div>
+      </div>
+    </div>
+    <script src="./script.js"></script>
+  </body>
+</html>
