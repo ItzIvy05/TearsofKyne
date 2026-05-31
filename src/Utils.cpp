@@ -364,7 +364,7 @@ namespace WaterskinUtils {
                     return;
                 }
 
-                HUDManager::GetSingleton()->ShowNotification("I received a water bottle.");
+                HUDManager::GetSingleton()->ShowNotification("I received a water skin.");
             }
 
             g_pendingStartingBottleGrant = false;
