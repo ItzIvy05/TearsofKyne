@@ -278,6 +278,10 @@ namespace Settings {
                 const auto upper = UpperCopy(value);
                 if (upper == "1" || upper == "SIMPLE") {
                     g_widgetStyle = WidgetStyle::Simple;
+                } else if (upper == "2" || upper == "NORDIC") {
+                    g_widgetStyle = WidgetStyle::Nordic;
+                } else if (upper == "3" || upper == "GHOST") {
+                    g_widgetStyle = WidgetStyle::Ghost;
                 } else {
                     g_widgetStyle = WidgetStyle::Detailed;
                 }
@@ -321,7 +325,7 @@ namespace Settings {
             g_menuY,
             g_widgetScale,
             g_hudVisible ? 1 : 0,
-            WIDGET_STYLE_NAMES[std::clamp(static_cast<int>(g_widgetStyle), 0, 2)],
+            WIDGET_STYLE_NAMES[std::clamp(static_cast<int>(g_widgetStyle), 0, 3)],
             DIFFICULTY_NAMES[static_cast<int>(g_difficulty)],
             ACCESSIBILITY_THEME_NAMES[static_cast<int>(g_accessibilityTheme)]);
     }

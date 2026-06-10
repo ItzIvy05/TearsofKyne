@@ -43,6 +43,9 @@
   const simpleWidget = document.getElementById('simple-widget');
   const simpleDropShell = document.getElementById('simple-drop-shell');
   const simpleDropShape = document.getElementById('simple-drop-shape');
+  const ghostWidget = document.getElementById('ghost-widget');
+  const ghostDropShell = document.getElementById('ghost-drop-shell');
+  const ghostDropShape = document.getElementById('ghost-drop-shape');
   const accent = document.getElementById('water-accent');
   const drop = document.querySelector('.water-drop');
   const dropShape = document.getElementById('water-drop-shape');
@@ -100,7 +103,11 @@
     togglehud: bindToggleHudButton,
   };
 
-  const getActiveWidget = () => (widgetStyle === 1 ? simpleWidget : panel);
+  const getActiveWidget = () => {
+    if (widgetStyle === 1) return simpleWidget;
+    if (widgetStyle === 3) return ghostWidget;
+    return panel;
+  };
   const getActiveWidgetRect = () => getActiveWidget().getBoundingClientRect();
   const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -229,6 +236,7 @@
     const simpleColor = theme.simpleStageColors[safeStage];
     setDetailedColor(detailedColor, hexToRgba(detailedColor, 0.32));
     setSimpleColor(simpleColor, hexToRgba(simpleColor, 0.30));
+    setGhostColor(simpleColor, hexToRgba(simpleColor, 0.30));
   };
 
   const updateRangeVisual = (slider) => {
@@ -316,14 +324,30 @@
     simpleDropShell.style.filter = `drop-shadow(0 0 12px ${glow})`;
   };
 
+  const setGhostColor = (color, glow) => {
+    ghostDropShape.setAttribute('fill', color);
+    ghostDropShell.style.filter = `drop-shadow(0 0 12px ${glow})`;
+  };
+
+  const GHOST_STAGE_OPACITIES = [0, 0.25, 0.5, 0.75, 1.0];
+
+  const applyGhostOpacity = () => {
+    const safeStage = clampValue(currentStage, 0, 4);
+    const baseOpacity = GHOST_STAGE_OPACITIES[safeStage];
+    ghostWidget.style.opacity = String(settingsOpen ? Math.max(0.15, baseOpacity) : baseOpacity);
+  };
+
   const applyWidgetStyle = () => {
-    const hideDetailed = !waterSystemEnabled || widgetStyle === 1 || widgetMenuSuppressed || (!hudVisible && !settingsOpen);
+    const hideDetailed = !waterSystemEnabled || widgetStyle === 1 || widgetStyle === 3 || widgetMenuSuppressed || (!hudVisible && !settingsOpen);
     const hideSimple = !waterSystemEnabled || widgetStyle !== 1 || widgetMenuSuppressed || (!hudVisible && !settingsOpen);
+    const hideGhost = !waterSystemEnabled || widgetStyle !== 3 || widgetMenuSuppressed || (!hudVisible && !settingsOpen);
     panel.classList.toggle('nordic-style', widgetStyle === 2);
     notification.classList.toggle('nordic-style', widgetStyle === 2);
     panel.classList.toggle('hidden', hideDetailed);
     simpleWidget.classList.toggle('hidden', hideSimple);
+    ghostWidget.classList.toggle('hidden', hideGhost);
     notification.classList.toggle('hidden', !waterSystemEnabled || widgetMenuSuppressed || !notification.textContent);
+    applyGhostOpacity();
     refreshSliderBounds();
     updateHudPosition(hudX, hudY, false);
   };
@@ -541,6 +565,7 @@
     overlay.classList.toggle('hidden', !settingsOpen);
     root.classList.toggle('menu-open', settingsOpen);
     applyWidgetStyle();
+    applyGhostOpacity();
     if (settingsOpen) {
       refreshSliderBounds();
       if (typeof window.tokRequestSettings === 'function') {
@@ -714,6 +739,7 @@
 
   panel.addEventListener('mousedown', beginHudDrag);
   simpleWidget.addEventListener('mousedown', beginHudDrag);
+  ghostWidget.addEventListener('mousedown', beginHudDrag);
 
   settingsDragHandle.addEventListener('mousedown', (event) => {
     if (!settingsOpen || event.button !== 0) {

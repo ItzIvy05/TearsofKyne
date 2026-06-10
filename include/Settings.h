@@ -11,7 +11,8 @@ namespace Settings {
     enum class WidgetStyle : int {
         Detailed = 0,
         Simple = 1,
-        Nordic = 2
+        Nordic = 2,
+        Ghost = 3
     };
 
     enum class AccessibilityTheme : int {
@@ -27,7 +28,7 @@ namespace Settings {
     inline constexpr float DRINK_AMOUNTS[4] = { 65.0f, 55.0f, 45.0f, 35.0f };
     inline constexpr float FILL_BONUSES[4] = { 20.0f, 15.0f, 10.0f, 5.0f };
     inline constexpr const char* DIFFICULTY_NAMES[4] = { "Easy", "Medium", "Hard", "Very Hard" };
-    inline constexpr const char* WIDGET_STYLE_NAMES[3] = { "Default", "Simple", "Nordic" };
+    inline constexpr const char* WIDGET_STYLE_NAMES[4] = { "Default", "Simple", "Nordic", "Ghost" };
     inline constexpr const char* ACCESSIBILITY_THEME_NAMES[6] = { "Default", "Protanopia", "Deuteranopia", "Tritanopia", "Protanomaly", "Deuteranomaly" };
 
     inline constexpr const char* DEFAULT_PLUGIN_NAME = "Tears of Kyne.esp";

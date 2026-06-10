@@ -465,8 +465,7 @@ void HUDManager::HandleSaveMenuPosition(const char* data) {
 void HUDManager::HandleSetWidgetStyle(const char* data) {
     const int style = ParseInt(data ? data : "0", 0);
     Settings::g_widgetStyle = style == 1
-                                  ? Settings::WidgetStyle::Simple
-                                  : (style == 2 ? Settings::WidgetStyle::Nordic : Settings::WidgetStyle::Detailed);
+       ? Settings::WidgetStyle::Simple : (style == 2 ? Settings::WidgetStyle::Nordic : (style == 3 ? Settings::WidgetStyle::Ghost : Settings::WidgetStyle::Detailed));
     Settings::SaveToINI();
     RefreshSettingsMenu();
     PushUpdate();
