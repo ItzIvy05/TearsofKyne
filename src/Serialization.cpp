@@ -1,6 +1,6 @@
 #include "Serialization.h"
 
-#include "MCP.h"
+#include "Menu.h"
 #include "Manager.h"
 
 #include <atomic>
@@ -74,8 +74,8 @@ namespace Serialization {
         WaterNeedManager::GetSingleton()->SetLastGameTime(-1.0f);
         WaterNeedManager::GetSingleton()->SetSystemEnabled(true);
         WaterNeedManager::GetSingleton()->ClearStoredBottleCounts();
-        HUDManager::GetSingleton()->EndGameSession(false);
-        HUDManager::GetSingleton()->PushUpdate();
+        TearsWidget::EndGameSession(false);
+        TearsWidget::Refresh();
     }
 
     void ResetLoadState()

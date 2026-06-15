@@ -2,8 +2,9 @@
 
 #include <optional>
 
-#include "MCP.h"
+#include "Localization.h"
 #include "Manager.h"
+#include "Menu.h"
 
 namespace WaterskinUtils {
     namespace {
@@ -35,8 +36,29 @@ namespace WaterskinUtils {
 
         std::string GetCurrentStateNotificationText() {
             const auto* manager = WaterNeedManager::GetSingleton();
-            const auto* stageName = manager ? manager->GetStageName() : "Quenched";
-            return std::format("I'm {}.", stageName ? stageName : "Quenched");
+            const int stage = manager ? manager->GetStage() : 0;
+            const char* key = "$TOK_StageQuenched";
+            switch (stage) {
+                case 0:
+                    key = "$TOK_StageQuenched";
+                    break;
+                case 1:
+                    key = "$TOK_StageSated";
+                    break;
+                case 2:
+                    key = "$TOK_StageThirsty";
+                    break;
+                case 3:
+                    key = "$TOK_StageParched";
+                    break;
+                case 4:
+                    key = "$TOK_StageDehydrated";
+                    break;
+                default:
+                    key = "$TOK_StageQuenched";
+                    break;
+            }
+            return Localization::Get(key);
         }
 
         bool HasAnyTrackedBottle(RE::PlayerCharacter* player) {
@@ -135,16 +157,16 @@ namespace WaterskinUtils {
             }
 
             if (IsAlreadyQuenched()) {
-                HUDManager::GetSingleton()->ShowNotification("I'm already Quenched.");
-                HUDManager::GetSingleton()->PushUpdate();
+                TearsWidget::ShowNotification(Localization::Get("$TOK_AlreadyQuenched").c_str());
+                TearsWidget::Refresh();
                 return;
             }
 
             WaterNeedManager::GetSingleton()->Drink(HYDRATING_DRINK_AMOUNT);
 
             const auto currentStateText = GetCurrentStateNotificationText();
-            HUDManager::GetSingleton()->ShowNotification(currentStateText.c_str());
-            HUDManager::GetSingleton()->PushUpdate();
+            TearsWidget::ShowNotification(currentStateText.c_str());
+            TearsWidget::Refresh();
         }
 
         bool TryFillImpl(bool requireNearbyWater) {
@@ -158,7 +180,7 @@ namespace WaterskinUtils {
             }
 
             if (requireNearbyWater && !IsNearWater()) {
-                HUDManager::GetSingleton()->ShowNotification("I need to stand in water to fill my waterskin.");
+                TearsWidget::ShowNotification(Localization::Get("$TOK_NeedWater").c_str());
                 return false;
             }
 
@@ -172,8 +194,8 @@ namespace WaterskinUtils {
             }
 
             const auto currentStateText = GetCurrentStateNotificationText();
-            HUDManager::GetSingleton()->ShowNotification(currentStateText.c_str());
-            HUDManager::GetSingleton()->PushUpdate();
+            TearsWidget::ShowNotification(currentStateText.c_str());
+            TearsWidget::Refresh();
             return true;
         }
 
@@ -364,7 +386,7 @@ namespace WaterskinUtils {
                     return;
                 }
 
-                HUDManager::GetSingleton()->ShowNotification("I received a water skin.");
+                TearsWidget::ShowNotification(Localization::Get("$TOK_ReceivedWaterskin").c_str());
             }
 
             g_pendingStartingBottleGrant = false;
@@ -373,7 +395,7 @@ namespace WaterskinUtils {
             if (now >= 0.0f) {
                 manager->SetLastGameTime(now);
             }
-            HUDManager::GetSingleton()->PushUpdate();
+            TearsWidget::Refresh();
         }
     }
 
@@ -415,28 +437,28 @@ namespace WaterskinUtils {
         const auto drinkableBottleIndex = FindDrinkableBottleIndex(player);
         if (!drinkableBottleIndex.has_value()) {
             if (g_trackedBottleForms[3] && player->GetItemCount(g_trackedBottleForms[3]) > 0) {
-                HUDManager::GetSingleton()->ShowNotification("My waterskin is empty.");
+                TearsWidget::ShowNotification(Localization::Get("$TOK_WaterskinEmpty").c_str());
             } else {
-                HUDManager::GetSingleton()->ShowNotification("I do not have a filled waterskin.");
+                TearsWidget::ShowNotification(Localization::Get("$TOK_NoFilledWaterskin").c_str());
             }
             return;
         }
 
         if (IsAlreadyQuenched()) {
-            HUDManager::GetSingleton()->ShowNotification("I'm already Quenched.");
+            TearsWidget::ShowNotification(Localization::Get("$TOK_AlreadyQuenched").c_str());
             return;
         }
 
         if (!ReplaceTrackedBottle(player, *drinkableBottleIndex, *drinkableBottleIndex + 1)) {
-            HUDManager::GetSingleton()->ShowNotification("I could not drink from my waterskin.");
+            TearsWidget::ShowNotification(Localization::Get("$TOK_CouldNotDrink").c_str());
             return;
         }
 
         WaterNeedManager::GetSingleton()->Drink(Settings::g_drinkAmount);
         QueueInventoryMenuRefresh();
         const auto currentStateText = GetCurrentStateNotificationText();
-        HUDManager::GetSingleton()->ShowNotification(currentStateText.c_str());
-        HUDManager::GetSingleton()->PushUpdate();
+        TearsWidget::ShowNotification(currentStateText.c_str());
+        TearsWidget::Refresh();
     }
 
     bool IsNearWater() {
@@ -542,7 +564,7 @@ namespace WaterskinUtils {
             return;
         }
 
-        if (!HUDManager::GetSingleton()->IsInGameSession()) {
+        if (!TearsWidget::IsInGameSession()) {
             return;
         }
 
@@ -557,21 +579,21 @@ namespace WaterskinUtils {
                 if (*trackedBottleIndex >= g_trackedBottleForms.size() - 1) {
                     AddTrackedBottle(player, g_trackedBottleForms.back(), 1);
                     QueueInventoryMenuRefresh();
-                    HUDManager::GetSingleton()->ShowNotification("My waterskin is empty.");
-                    HUDManager::GetSingleton()->PushUpdate();
+                    TearsWidget::ShowNotification(Localization::Get("$TOK_WaterskinEmpty").c_str());
+                    TearsWidget::Refresh();
                     return;
                 }
 
                 if (IsAlreadyQuenched()) {
                     AddTrackedBottle(player, g_trackedBottleForms[*trackedBottleIndex], 1);
                     QueueInventoryMenuRefresh();
-                    HUDManager::GetSingleton()->ShowNotification("I'm already Quenched.");
-                    HUDManager::GetSingleton()->PushUpdate();
+                    TearsWidget::ShowNotification(Localization::Get("$TOK_AlreadyQuenched").c_str());
+                    TearsWidget::Refresh();
                     return;
                 }
 
                 if (!AddTrackedBottle(player, g_trackedBottleForms[*trackedBottleIndex + 1], 1)) {
-                    HUDManager::GetSingleton()->ShowNotification("I could not drink from my waterskin.");
+                    TearsWidget::ShowNotification(Localization::Get("$TOK_CouldNotDrink").c_str());
                     return;
                 }
 
@@ -579,8 +601,8 @@ namespace WaterskinUtils {
                 QueueInventoryMenuRefresh();
 
                 const auto currentStateText = GetCurrentStateNotificationText();
-                HUDManager::GetSingleton()->ShowNotification(currentStateText.c_str());
-                HUDManager::GetSingleton()->PushUpdate();
+                TearsWidget::ShowNotification(currentStateText.c_str());
+                TearsWidget::Refresh();
                 return;
             }
         }
@@ -629,7 +651,6 @@ namespace WaterskinUtils {
             logger::warn("[WaterskinUtils] IvyEnableMod global not found — is Tears of Kyne.esp loaded?");
         }
 
-        HUDManager::GetSingleton()->RefreshSettingsMenu();
-        HUDManager::GetSingleton()->PushUpdate();
+        TearsWidget::Refresh();
     }
 }

@@ -1,6 +1,6 @@
 #include "Events.h"
 
-#include "MCP.h"
+#include "Menu.h"
 #include "Utils.h"
 
 namespace Events {
@@ -22,9 +22,9 @@ namespace Events {
                 }
 
                 const std::string_view menuName = event->menuName.c_str();
-                auto* hud = HUDManager::GetSingleton();
+                
 
-                hud->NotifyMenuEvent(event->menuName.c_str(), event->opening);
+                TearsWidget::NotifyMenuEvent(event->menuName.c_str(), event->opening);
                 return RE::BSEventNotifyControl::kContinue;
             }
         };
@@ -82,7 +82,7 @@ namespace Events {
         if (auto* ui = RE::UI::GetSingleton()) {
             ui->AddEventSink<RE::MenuOpenCloseEvent>(MenuWatcher::GetSingleton());
             logger::info("[Events] Registered MenuOpenCloseEvent sink.");
-            HUDManager::GetSingleton()->RefreshMenuSuppression();
+            TearsWidget::RefreshSuppression();
             registeredAnything = true;
         } else {
             logger::warn("[Events] Could not register MenuOpenCloseEvent sink.");

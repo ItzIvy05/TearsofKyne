@@ -10,8 +10,7 @@
     "rapidcsv",
     "clib-util",
     "clib-utils-qtr",
-    "directxtk",
-    "skse-mcp"
+    "directxtk"
   ],
   "overrides": [
     {

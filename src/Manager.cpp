@@ -1,16 +1,63 @@
 #include "Manager.h"
 
-#include "MCP.h"
+#include "Localization.h"
+#include "Menu.h"
 #include "Utils.h"
 
 namespace {
-    constexpr std::array<const char*, 5> STAGE_SPELL_EDITOR_IDS = {
-        "IvyThirstQuenchedSpell", 
-        "IvyThirstSatedSpell",
-        "IvyThirstThirstySpell",
-        "IvyThirstParchedSpell",
-        "IvyThirstDehydratedSpell"
-    };
+    constexpr std::array<const char*, 5> STAGE_SPELL_EDITOR_IDS = {"IvyThirstQuenchedSpell", "IvyThirstSatedSpell",
+                                                                   "IvyThirstThirstySpell", "IvyThirstParchedSpell",
+                                                                   "IvyThirstDehydratedSpell"};
+
+    bool IsPlayerInJail() {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player) return false;
+
+        auto* loc = player->GetCurrentLocation();
+        if (!loc) return false;
+
+        if (const char* edid = loc->GetFormEditorID()) {
+            const std::string_view name = edid;
+            if (name == "WinterholdJail" || name == "TheChill" || name.find("Chill") != std::string_view::npos) {
+                return false;
+            }
+        }
+
+        static const auto hasJailKeyword = [](RE::BGSLocation* location) -> bool {
+            for (const char* kw : {"LocTypeJail", "LocTypePrison"}) {
+                if (auto* keyword = RE::TESForm::LookupByEditorID<RE::BGSKeyword>(kw)) {
+                    if (location->HasKeyword(keyword)) return true;
+                }
+            }
+            return false;
+        };
+
+        RE::BGSLocation* cur = loc;
+        int guard = 0;
+        while (cur && guard++ < 8) {
+            if (hasJailKeyword(cur)) return true;
+            cur = cur->parentLoc;
+        }
+        return false;
+    }
+
+    bool IsPlayerVampire() {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player) return false;
+
+        if (auto* keyword = RE::TESForm::LookupByEditorID<RE::BGSKeyword>("Vampire")) {
+            if (player->HasKeyword(keyword)) return true;
+        }
+
+        if (auto* race = player->GetRace()) {
+            if (const char* edid = race->GetFormEditorID()) {
+                if (std::string_view(edid).find("Vampire") != std::string_view::npos) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     std::array<RE::SpellItem*, 5> g_stageSpells{};
     std::array<bool, 5> g_loggedStageSpellLookupFailure{};
@@ -67,18 +114,18 @@ namespace {
         }
     }
 
-    const char* GetStageNotificationText(int stage) {
+    std::string GetStageNotificationText(int stage) {
         switch (stage) {
             case 0:
-                return "I'm Quenched.";
+                return Localization::Get("$TOK_StageQuenched");
             case 1:
-                return "I'm Sated.";
+                return Localization::Get("$TOK_StageSated");
             case 2:
-                return "I'm Thirsty.";
+                return Localization::Get("$TOK_StageThirsty");
             case 3:
-                return "I'm Parched.";
+                return Localization::Get("$TOK_StageParched");
             default:
-                return "I'm Dehydrated.";
+                return Localization::Get("$TOK_StageDehydrated");
         }
     }
 }
@@ -116,7 +163,7 @@ void WaterNeedManager::OnNewGame() {
     }
 
     SyncHydrationStageSpell(0, true);
-    HUDManager::GetSingleton()->PushUpdate();
+    TearsWidget::Refresh();
 }
 
 void WaterNeedManager::OnGameLoaded() {
@@ -131,11 +178,11 @@ void WaterNeedManager::OnGameLoaded() {
     }
 
     SyncHydrationStageSpell(stage, systemEnabled);
-    HUDManager::GetSingleton()->PushUpdate();
+    TearsWidget::Refresh();
 }
 
 void WaterNeedManager::Tick() {
-    if (!HUDManager::GetSingleton()->IsInGameSession()) {
+    if (!TearsWidget::IsInGameSession()) {
         return;
     }
 
@@ -175,8 +222,18 @@ void WaterNeedManager::Tick() {
         previousStage = StageFromLevel(_thirstLevel);
 
         if (hoursPassed > 0.0f) {
-            _thirstLevel = std::clamp(_thirstLevel + (hoursPassed * Settings::g_thirstRate), 0.0f, 100.0f);
-            changed = true;
+            const bool jailPaused = Settings::g_pauseNeedsInJail && IsPlayerInJail();
+            const bool vampirePaused = Settings::g_disableForVampire && IsPlayerVampire();
+
+            if (!jailPaused && !vampirePaused) {
+                float rate = Settings::g_thirstRate;
+                if (Settings::g_enablePerkGate && Settings::PlayerHasGatePerk()) {
+                    const float reduction = std::clamp(Settings::g_perkRateReduction, 15.0f, 75.0f);
+                    rate *= (1.0f - reduction / 100.0f);
+                }
+                _thirstLevel = std::clamp(_thirstLevel + (hoursPassed * rate), 0.0f, 100.0f);
+                changed = true;
+            }
         }
 
         currentStage = StageFromLevel(_thirstLevel);
@@ -184,10 +241,10 @@ void WaterNeedManager::Tick() {
     }
 
     SyncHydrationStageSpell(currentStage, systemEnabled);
-    HUDManager::GetSingleton()->PushUpdate();
+    TearsWidget::Refresh();
 
     if (changed && currentStage > previousStage) {
-        HUDManager::GetSingleton()->ShowNotification(GetStageNotificationText(currentStage));
+        TearsWidget::ShowNotification(GetStageNotificationText(currentStage).c_str());
     }
 }
 
@@ -203,7 +260,7 @@ void WaterNeedManager::Drink(float amount) {
     }
 
     SyncHydrationStageSpell(stage, systemEnabled);
-    HUDManager::GetSingleton()->PushUpdate();
+    TearsWidget::Refresh();
 }
 
 void WaterNeedManager::ForceSet(float value) {
@@ -224,6 +281,8 @@ bool WaterNeedManager::IsSystemEnabled() const {
     std::scoped_lock lock(_mutex);
     return _systemEnabled;
 }
+
+bool WaterNeedManager::IsPausedForVampire() const { return Settings::g_disableForVampire && IsPlayerVampire(); }
 
 void WaterNeedManager::SetSystemEnabled(bool enabled) {
     int stage = 0;

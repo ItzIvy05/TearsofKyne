@@ -1,15 +1,13 @@
 #include "Keyhandler.h"
 
-#include "MCP.h"
+#include "Menu.h"
 
-KeyHandler* KeyHandler::GetSingleton()
-{
+KeyHandler* KeyHandler::GetSingleton() {
     static KeyHandler instance;
     return &instance;
 }
 
-void KeyHandler::RegisterSink()
-{
+void KeyHandler::RegisterSink() {
     static std::atomic_bool registered = false;
     if (registered.load()) {
         return;
@@ -27,8 +25,7 @@ void KeyHandler::RegisterSink()
     }
 }
 
-KeyHandlerEvent KeyHandler::Register(std::uint32_t scanCode, KeyEventType eventType, KeyCallback callback)
-{
+KeyHandlerEvent KeyHandler::Register(std::uint32_t scanCode, KeyEventType eventType, KeyCallback callback) {
     if (!callback) {
         return INVALID_KEY_HANDLER_EVENT;
     }
@@ -42,12 +39,11 @@ KeyHandlerEvent KeyHandler::Register(std::uint32_t scanCode, KeyEventType eventT
     auto& callbacks = _registeredCallbacks[scanCode];
     auto& target = eventType == KeyEventType::KEY_DOWN ? callbacks.down : callbacks.up;
     target[handle] = std::move(callback);
-    _handleMap[handle] = { scanCode, eventType };
+    _handleMap[handle] = {scanCode, eventType};
     return handle;
 }
 
-void KeyHandler::Unregister(KeyHandlerEvent handle)
-{
+void KeyHandler::Unregister(KeyHandlerEvent handle) {
     if (handle == INVALID_KEY_HANDLER_EVENT) {
         return;
     }
@@ -75,8 +71,8 @@ void KeyHandler::Unregister(KeyHandlerEvent handle)
     }
 }
 
-RE::BSEventNotifyControl KeyHandler::ProcessEvent(RE::InputEvent* const* eventList, RE::BSTEventSource<RE::InputEvent*>*)
-{
+RE::BSEventNotifyControl KeyHandler::ProcessEvent(RE::InputEvent* const* eventList,
+                                                  RE::BSTEventSource<RE::InputEvent*>*) {
     if (!eventList) {
         return RE::BSEventNotifyControl::kContinue;
     }
@@ -85,13 +81,6 @@ RE::BSEventNotifyControl KeyHandler::ProcessEvent(RE::InputEvent* const* eventLi
     if (ui && ui->GameIsPaused()) {
         return RE::BSEventNotifyControl::kContinue;
     }
-
-    const bool prismaFocused = [] {
-        if (auto* prismaUI = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI1>(); prismaUI) {
-            return prismaUI->HasAnyActiveFocus();
-        }
-        return false;
-    }();
 
     std::vector<KeyCallback> callbacksToRun;
 
@@ -112,25 +101,6 @@ RE::BSEventNotifyControl KeyHandler::ProcessEvent(RE::InputEvent* const* eventLi
         } else if (button->IsUp()) {
             type = KeyEventType::KEY_UP;
         } else {
-            continue;
-        }
-
-        auto* hudManager = HUDManager::GetSingleton();
-        if (prismaFocused) {
-            if (type == KeyEventType::KEY_DOWN) {
-                if (hudManager->CaptureBindingKey(scanCode)) {
-                    continue;
-                }
-
-                if (hudManager->IsSettingsMenuOpen() && (scanCode == Settings::g_menuKey || scanCode == 0x01)) {
-                    auto* taskInterface = SKSE::GetTaskInterface();
-                    if (taskInterface) {
-                        taskInterface->AddTask([] { HUDManager::GetSingleton()->CloseSettingsMenu(); });
-                    }
-                    continue;
-                }
-            }
-
             continue;
         }
 

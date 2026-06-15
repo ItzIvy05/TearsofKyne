@@ -1,12 +1,13 @@
 #include <optional>
 
 #include "Events.h"
-#include "Hooks.h"
 #include "Hotkeys.h"
-#include "MCP.h"
+#include "Localization.h"
 #include "Manager.h"
+#include "Menu.h"
 #include "Serialization.h"
 #include "Settings.h"
+#include "UI.h"
 #include "Utils.h"
 #include "logger.h"
 
@@ -53,7 +54,7 @@ namespace {
             return;
         }
 
-        if (!HUDManager::GetSingleton()->IsInGameSession()) {
+        if (!TearsWidget::IsInGameSession()) {
             return;
         }
 
@@ -63,8 +64,12 @@ namespace {
 
         g_pendingNewGameSurvivalSync.store(false);
 
-        const auto survivalToggle = GetSurvivalModeToggleState();
-        const bool enableWaterNeeds = survivalToggle.value_or(true);
+        bool enableWaterNeeds;
+        if (Settings::g_enableTearsWithSM) {
+            enableWaterNeeds = GetSurvivalModeToggleState().value_or(true);
+        } else {
+            enableWaterNeeds = Settings::g_enableTears;
+        }
 
         WaterskinUtils::SetSystemEnabled(enableWaterNeeds);
 
@@ -74,8 +79,32 @@ namespace {
             WaterskinUtils::CancelPendingStartingWaterskin();
         }
 
-        logger::info("[Tears of Kyne] New game Survival Mode sync applied. Water needs {}.",
+        logger::info("[Tears of Kyne] New game startup sync applied. Water needs {}.",
                      enableWaterNeeds ? "enabled" : "disabled");
+    }
+
+    void ReconcileSystemEnabledState() {
+        if (!TearsWidget::IsInGameSession()) {
+            return;
+        }
+
+        bool shouldEnable;
+        if (Settings::g_enableTearsWithSM) {
+            const auto smState = GetSurvivalModeToggleState();
+            if (!smState.has_value()) {
+                return;
+            }
+            shouldEnable = Settings::g_enableTears && *smState;
+        } else {
+            shouldEnable = Settings::g_enableTears;
+        }
+
+        if (WaterNeedManager::GetSingleton()->IsSystemEnabled() != shouldEnable) {
+            WaterskinUtils::SetSystemEnabled(shouldEnable);
+            if (shouldEnable) {
+                WaterskinUtils::QueueStartingWaterskin();
+            }
+        }
     }
 
     void InitializeFreshInstallState() {
@@ -93,8 +122,7 @@ namespace {
     }
 
     void BootstrapInWorldStartupIfNeeded() {
-        auto* hud = HUDManager::GetSingleton();
-        if (hud->IsInGameSession()) {
+        if (TearsWidget::IsInGameSession()) {
             g_runtimeBootstrapHandled.store(true);
             return;
         }
@@ -117,12 +145,12 @@ namespace {
             return;
         }
 
-        hud->BeginGameSessionTransition(false);
+        TearsWidget::BeginGameSessionTransition(false);
         WaterNeedManager::GetSingleton()->OnGameLoaded();
         if (!Serialization::HasLoadedSaveData()) {
             InitializeFreshInstallState();
         }
-        hud->PushUpdate();
+        TearsWidget::Refresh();
         g_runtimeBootstrapHandled.store(true);
         logger::info("[Tears of Kyne] In-world startup fallback applied.");
     }
@@ -134,15 +162,27 @@ namespace {
 
         std::thread([] {
             std::this_thread::sleep_for(std::chrono::seconds(5));
+            int elapsed = 0;
             while (true) {
-                std::this_thread::sleep_for(std::chrono::seconds(Settings::g_updateIntervalSec));
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                elapsed += 1;
+                const bool slowTick = (elapsed >= Settings::g_updateIntervalSec);
+                if (slowTick) elapsed = 0;
+
                 auto* taskInterface = SKSE::GetTaskInterface();
                 if (taskInterface) {
-                    taskInterface->AddTask([] {
-                        BootstrapInWorldStartupIfNeeded();
-                        HUDManager::GetSingleton()->RefreshMenuSuppression();
-                        ApplyPendingNewGameSurvivalSyncIfReady();
-                        WaterNeedManager::GetSingleton()->Tick();
+                    taskInterface->AddTask([slowTick] {
+                        if (Settings::g_perkFormsDirty.exchange(false)) {
+                            Settings::ParsePerkForms();
+                        }
+                        if (slowTick) {
+                            BootstrapInWorldStartupIfNeeded();
+                            TearsWidget::RefreshSuppression();
+                            ApplyPendingNewGameSurvivalSyncIfReady();
+                            WaterNeedManager::GetSingleton()->Tick();
+                        }
+                        ReconcileSystemEnabledState();
+                        TearsWidget::ApplyPendingAppearance();
                     });
                 }
             }
@@ -155,44 +195,42 @@ namespace {
         switch (message->type) {
             case SKSE::MessagingInterface::kDataLoaded: {
                 Settings::LoadFromINI();
+                Localization::Load();
                 Serialization::ResetLoadState();
                 g_runtimeBootstrapHandled.store(false);
                 g_pendingNewGameSurvivalSync.store(false);
 
-                auto* prismaUI = static_cast<PRISMA_UI_API::IVPrismaUI1*>(
-                    PRISMA_UI_API::RequestPluginAPI(PRISMA_UI_API::InterfaceVersion::V1));
-
                 WaterskinUtils::Initialize();
                 WaterNeedManager::GetSingleton()->InitializeFromSettings();
-                HUDManager::GetSingleton()->Initialize(prismaUI);
-                HUDManager::GetSingleton()->EndGameSession();
+                TearsWidget::Init();
+                TearsWidget::EndGameSession();
                 Events::RegisterAll();
-                Hooks::Install();
                 Hotkeys::Initialize();
+                UI::Register();
                 StartUpdateThread();
 
-                logger::info("[Tears of Kyne] Ready. FillKey={} MenuKey={} HudX={} HudY={} ToggleHUDKey={}",
-                             Settings::GetKeyName(Settings::g_fillKey), Settings::GetKeyName(Settings::g_menuKey),
-                             Settings::g_hudX, Settings::g_hudY, Settings::GetKeyName(Settings::g_toggleHUDKey));
+                logger::info("[Tears of Kyne] Ready. FillKey={} ToggleWidgetKey={} HudX={} HudY={}",
+                             Settings::GetKeyName(Settings::g_fillKey),
+                             Settings::GetKeyName(Settings::g_toggleWidgetKey), Settings::g_hudX, Settings::g_hudY);
                 break;
             }
             case SKSE::MessagingInterface::kNewGame:
                 g_runtimeBootstrapHandled.store(false);
                 g_pendingNewGameSurvivalSync.store(true);
-                HUDManager::GetSingleton()->BeginGameSessionTransition(true);
+                TearsWidget::BeginGameSessionTransition(true);
                 WaterNeedManager::GetSingleton()->OnNewGame();
                 WaterskinUtils::CancelPendingStartingWaterskin();
-                HUDManager::GetSingleton()->PushUpdate();
+                TearsWidget::Refresh();
                 break;
             case SKSE::MessagingInterface::kPostLoadGame:
                 g_runtimeBootstrapHandled.store(false);
                 g_pendingNewGameSurvivalSync.store(false);
-                HUDManager::GetSingleton()->BeginGameSessionTransition(false);
+                TearsWidget::BeginGameSessionTransition(false);
                 WaterNeedManager::GetSingleton()->OnGameLoaded();
                 if (!Serialization::HasLoadedSaveData()) {
                     InitializeFreshInstallState();
                 }
-                HUDManager::GetSingleton()->PushUpdate();
+                TearsWidget::Refresh();
                 break;
             default:
                 break;
@@ -216,6 +254,5 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
         serialization->SetLoadCallback(Serialization::OnLoad);
         serialization->SetRevertCallback(Serialization::OnRevert);
     }
-
     return true;
 }

@@ -6,7 +6,7 @@ class WaterNeedManager {
 public:
     static WaterNeedManager* GetSingleton();
 
-    // I dont know how to make it so i dont have to complile dll 
+    // I dont know how to make it so i dont have to complile dll
     // everytime to balance this {Missile Help}
 
     // Stage Breakpoints
@@ -21,10 +21,10 @@ public:
 
     // Easy = 3.0/ hour
     // Medium = 6.0/hour
-    // Hard = 9.0/ hour 
+    // Hard = 9.0/ hour
 
-    static constexpr float STAGE_BOUNDS[5] = { 0.0f, 20.0f, 40.0f, 60.0f, 80.0f };
-    static constexpr const char* STAGE_NAMES[5] = { "Quenched", "Sated", "Thirsty", "Parched", "Dehydrated" };
+    static constexpr float STAGE_BOUNDS[5] = {0.0f, 20.0f, 40.0f, 60.0f, 80.0f};
+    static constexpr const char* STAGE_NAMES[5] = {"Quenched", "Sated", "Thirsty", "Parched", "Dehydrated"};
 
     void InitializeFromSettings();
     void OnNewGame();
@@ -34,6 +34,7 @@ public:
     void ForceSet(float value);
 
     [[nodiscard]] bool IsSystemEnabled() const;
+    [[nodiscard]] bool IsPausedForVampire() const;
     void SetSystemEnabled(bool enabled);
 
     [[nodiscard]] std::array<std::int32_t, 4> GetStoredBottleCounts() const;
