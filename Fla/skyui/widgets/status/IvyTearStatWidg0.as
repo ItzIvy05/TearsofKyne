@@ -23,6 +23,15 @@ class skyui.widgets.status.IvyTearStatWidg0 extends skyui.widgets.WidgetBase
    }
    function setBathColorLevel(a_colorLevel)
    {
+      var total = this.iconHolder._totalframes;
+      if(a_colorLevel < 1)
+      {
+         a_colorLevel = 1;
+      }
+      if(a_colorLevel > total)
+      {
+         a_colorLevel = total;
+      }
       this.iconHolder.gotoAndStop(a_colorLevel);
    }
    function get Scale()

@@ -1,5 +1,6 @@
 #include "Menu.h"
 
+#include <algorithm>
 #include <array>
 
 #include "Hotkeys.h"
@@ -16,8 +17,6 @@ namespace {
     std::string s_pendingBinding;
 
     int s_widgetIndex = -1;
-    int s_appearanceApplyCount = 0;
-    std::chrono::steady_clock::time_point s_lastAppearanceApply{};
     std::string s_widgetRoot;
 
     constexpr const char* HUD_MENU = "HUD Menu";
@@ -72,7 +71,6 @@ bool TearsWidget::ResolveWidget() {
 
     s_widgetIndex = idx;
     s_widgetRoot = std::format("_root.WidgetContainer.{}.widget", idx);
-    s_appearanceApplyCount = 10;
     logger::info("[TearsWidget] Resolved widget root '{}'.", s_widgetRoot);
     return true;
 }
@@ -106,37 +104,20 @@ void TearsWidget::InvokeArg(const char* method, double arg) {
     movie->Invoke((s_widgetRoot + method).c_str(), nullptr, &a, 1);
 }
 
-void TearsWidget::ApplyPendingAppearance() {
-    if (s_appearanceApplyCount <= 0) return;
-    if (!IsReady()) return;
-
-    const auto now = std::chrono::steady_clock::now();
-    if (s_appearanceApplyCount < 10) {
-        const auto sinceLast =
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastAppearanceApply).count();
-        if (sinceLast < 900) return;
-    }
-    s_lastAppearanceApply = now;
-    s_appearanceApplyCount--;
-
-    SetPosition(Settings::g_hudX, Settings::g_hudY);
-    SetScale(Settings::g_widgetScale);
-}
-
 void TearsWidget::Refresh() {
     RefreshSuppression();
     if (!IsReady()) return;
 
     const auto* mgr = WaterNeedManager::GetSingleton();
-    const int percent = std::clamp(mgr->GetPercent(), 0, 100);
-    const int frame = std::clamp(percent / 10 + 1, 1, 10);
+    const int frame = std::clamp(mgr->GetStage() + 1, 1, 5);
     const bool show =
         Settings::g_hudVisible && !s_menuSuppressed.load() && mgr->IsSystemEnabled() && !mgr->IsPausedForVampire();
 
     SetVarBool("._visible", show);
     if (show) {
+        SetPosition(Settings::g_hudX, Settings::g_hudY);
+        SetScale(Settings::g_widgetScale);
         InvokeArg(".setBathColorLevel", static_cast<double>(frame));
-        SetVar("._alpha", 100.0);
     }
 }
 

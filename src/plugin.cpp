@@ -182,7 +182,6 @@ namespace {
                             WaterNeedManager::GetSingleton()->Tick();
                         }
                         ReconcileSystemEnabledState();
-                        TearsWidget::ApplyPendingAppearance();
                     });
                 }
             }

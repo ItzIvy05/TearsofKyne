@@ -4,7 +4,6 @@ class TearsWidget {
 public:
     static void Init();
     static void Refresh();
-    static void ApplyPendingAppearance();
     static void SetPosition(int x, int y);
     static void SetScale(int scalePercent);
 
