@@ -25,6 +25,12 @@ namespace WaterskinUtils {
         bool g_pendingStartingBottleGrant = false;
         bool g_loggedLookupFailure = false;
 
+        constexpr RE::FormID IDLE_PICKUP_GROUND_FORM_ID = 0x00075C3E;
+        constexpr RE::FormID IDLE_STOP_LOOSE_FORM_ID = 0x0010D9EE;
+        RE::TESIdleForm* g_idlePickupGround = nullptr;
+        RE::TESIdleForm* g_idleStopLoose = nullptr;
+        std::atomic<bool> g_fillAnimationActive{false};
+
         float GetCurrentGameTime() {
             auto* calendar = RE::Calendar::GetSingleton();
             return calendar ? calendar->GetCurrentGameTime() : -1.0f;
@@ -169,18 +175,13 @@ namespace WaterskinUtils {
             TearsWidget::Refresh();
         }
 
-        bool TryFillImpl(bool requireNearbyWater) {
+        bool TryFillImpl() {
             if (!WaterNeedManager::GetSingleton()->IsSystemEnabled()) {
                 return false;
             }
 
             auto* player = RE::PlayerCharacter::GetSingleton();
             if (!player || !EnsureWaterskinFormsReady()) {
-                return false;
-            }
-
-            if (requireNearbyWater && !IsNearWater()) {
-                TearsWidget::ShowNotification(Localization::Get("$TOK_NeedWater").c_str());
                 return false;
             }
 
@@ -197,6 +198,54 @@ namespace WaterskinUtils {
             TearsWidget::ShowNotification(currentStateText.c_str());
             TearsWidget::Refresh();
             return true;
+        }
+
+        RE::TESIdleForm* LookupIdle(RE::FormID formID, const char* editorID) {
+            if (auto* dataHandler = RE::TESDataHandler::GetSingleton()) {
+                if (auto* form = dataHandler->LookupForm<RE::TESIdleForm>(formID, "Skyrim.esm")) {
+                    return form;
+                }
+            }
+            return RE::TESForm::LookupByEditorID<RE::TESIdleForm>(editorID);
+        }
+
+        void EnsureFillAnimationFormsReady() {
+            if (!g_idlePickupGround) {
+                g_idlePickupGround = LookupIdle(IDLE_PICKUP_GROUND_FORM_ID, "IdlePickUp_Ground");
+            }
+            if (!g_idleStopLoose) {
+                g_idleStopLoose = LookupIdle(IDLE_STOP_LOOSE_FORM_ID, "IdleStop_Loose");
+            }
+        }
+
+        void PlayIdleOnPlayer(RE::TESIdleForm* idle) {
+            if (!idle) {
+                return;
+            }
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!player) {
+                return;
+            }
+            auto* process = player->GetActorRuntimeData().currentProcess;
+            if (process) {
+                process->PlayIdle(player, idle, player);
+            }
+        }
+
+        void CommitWaterskinFill() {
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!player) {
+                return;
+            }
+
+            const auto refillableBottleIndex = FindRefillableBottleIndex(player);
+            if (refillableBottleIndex.has_value()) {
+                ReplaceTrackedBottle(player, *refillableBottleIndex, 0);
+            }
+
+            const auto currentStateText = GetCurrentStateNotificationText();
+            TearsWidget::ShowNotification(currentStateText.c_str());
+            TearsWidget::Refresh();
         }
 
         RE::PlayerCharacter* GetReadyPlayer() {
@@ -408,7 +457,72 @@ namespace WaterskinUtils {
         ResolveWaterskinForms(true, false);
     }
 
-    void TryFill() { TryFillImpl(true); }
+    void TryFill() {
+        if (!WaterNeedManager::GetSingleton()->IsSystemEnabled()) {
+            return;
+        }
+
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player || !EnsureWaterskinFormsReady()) {
+            return;
+        }
+
+        if (!IsNearWater()) {
+            TearsWidget::ShowNotification(Localization::Get("$TOK_NeedWater").c_str());
+            return;
+        }
+
+        if (player->AsActorState()->IsWeaponDrawn()) {
+            TearsWidget::ShowNotification(Localization::Get("$TOK_SheatheFirst").c_str());
+            return;
+        }
+
+        if (player->IsInCombat()) {
+            TearsWidget::ShowNotification(Localization::Get("$TOK_CannotFillCombat").c_str());
+            return;
+        }
+
+        if (!FindRefillableBottleIndex(player).has_value()) {
+            TearsWidget::ShowNotification(Localization::Get("$TOK_WaterskinFilled").c_str());
+            return;
+        }
+
+        if (g_fillAnimationActive.exchange(true)) {
+            return;
+        }
+
+        EnsureFillAnimationFormsReady();
+
+        auto* camera = RE::PlayerCamera::GetSingleton();
+        const bool wasFirstPerson = camera && camera->IsInFirstPerson();
+        if (wasFirstPerson) {
+            camera->ForceThirdPerson();
+        }
+        PlayIdleOnPlayer(g_idlePickupGround);
+
+        std::thread([wasFirstPerson] {
+            auto* task = SKSE::GetTaskInterface();
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (task) {
+                task->AddTask([] { CommitWaterskinFill(); });
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (task) {
+                task->AddTask([] { PlayIdleOnPlayer(g_idleStopLoose); });
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (task) {
+                task->AddTask([wasFirstPerson] {
+                    if (wasFirstPerson) {
+                        if (auto* restoreCamera = RE::PlayerCamera::GetSingleton()) {
+                            restoreCamera->ForceFirstPerson();
+                        }
+                    }
+                });
+            }
+            g_fillAnimationActive.store(false);
+        }).detach();
+    }
 
     bool TryFillFromActivator(RE::TESObjectREFR* activatedRef, RE::TESObjectREFR* actionRef) {
         auto* player = RE::PlayerCharacter::GetSingleton();
@@ -421,7 +535,7 @@ namespace WaterskinUtils {
             return false;
         }
 
-        return TryFillImpl(false);
+        return TryFillImpl();
     }
 
     void TryDrink() {
