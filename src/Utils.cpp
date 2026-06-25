@@ -31,6 +31,10 @@ namespace WaterskinUtils {
         RE::TESIdleForm* g_idleStopLoose = nullptr;
         std::atomic<bool> g_fillAnimationActive{false};
 
+        constexpr const char* FILL_POWER_EDITOR_ID = "IvyFillWaterPower";
+        RE::SpellItem* g_fillPower = nullptr;
+        bool g_loggedFillPowerFailure = false;
+
         float GetCurrentGameTime() {
             auto* calendar = RE::Calendar::GetSingleton();
             return calendar ? calendar->GetCurrentGameTime() : -1.0f;
@@ -216,6 +220,18 @@ namespace WaterskinUtils {
             if (!g_idleStopLoose) {
                 g_idleStopLoose = LookupIdle(IDLE_STOP_LOOSE_FORM_ID, "IdleStop_Loose");
             }
+        }
+
+        RE::SpellItem* ResolveFillPower() {
+            if (g_fillPower) {
+                return g_fillPower;
+            }
+            g_fillPower = RE::TESForm::LookupByEditorID<RE::SpellItem>(FILL_POWER_EDITOR_ID);
+            if (!g_fillPower && !g_loggedFillPowerFailure) {
+                logger::warn("[WaterskinUtils] Could not resolve fill power '{}'.", FILL_POWER_EDITOR_ID);
+                g_loggedFillPowerFailure = true;
+            }
+            return g_fillPower;
         }
 
         void PlayIdleOnPlayer(RE::TESIdleForm* idle) {
@@ -658,8 +674,32 @@ namespace WaterskinUtils {
 
     void CancelPendingStartingWaterskin() { g_pendingStartingBottleGrant = false; }
 
+    void SyncFillPower() {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player) {
+            return;
+        }
+
+        auto* power = ResolveFillPower();
+        if (!power) {
+            return;
+        }
+
+        const bool shouldHave = Settings::g_useFillPower && WaterNeedManager::GetSingleton()->IsSystemEnabled();
+        const bool hasIt = player->HasSpell(power);
+
+        if (shouldHave && !hasIt) {
+            player->AddSpell(power);
+            logger::info("[WaterskinUtils] Fill power added to player.");
+        } else if (!shouldHave && hasIt) {
+            player->RemoveSpell(power);
+            logger::info("[WaterskinUtils] Fill power removed from player.");
+        }
+    }
+
     void OnInGameSessionReady() {
         EnsureWaterskinFormsReady();
+        SyncFillPower();
 
         if (!g_pendingStartingBottleGrant) {
             return;
@@ -765,6 +805,7 @@ namespace WaterskinUtils {
             logger::warn("[WaterskinUtils] IvyEnableMod global not found — is Tears of Kyne.esp loaded?");
         }
 
+        SyncFillPower();
         TearsWidget::Refresh();
     }
 }

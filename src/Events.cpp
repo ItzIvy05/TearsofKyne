@@ -53,6 +53,27 @@ namespace Events {
             }
         };
 
+        class FillPowerWatcher final : public RE::BSTEventSink<SKSE::ModCallbackEvent> {
+        public:
+            static FillPowerWatcher* GetSingleton()
+            {
+                static FillPowerWatcher instance;
+                return &instance;
+            }
+
+            RE::BSEventNotifyControl ProcessEvent(
+                const SKSE::ModCallbackEvent* event,
+                RE::BSTEventSource<SKSE::ModCallbackEvent>*) override
+            {
+                if (event && event->eventName == "TOK_FillWater") {
+                    if (auto* taskInterface = SKSE::GetTaskInterface()) {
+                        taskInterface->AddTask([] { WaterskinUtils::TryFill(); });
+                    }
+                }
+                return RE::BSEventNotifyControl::kContinue;
+            }
+        };
+
         class EquipWatcher final : public RE::BSTEventSink<RE::TESEquipEvent> {
         public:
             static EquipWatcher* GetSingleton()
@@ -86,6 +107,14 @@ namespace Events {
             registeredAnything = true;
         } else {
             logger::warn("[Events] Could not register MenuOpenCloseEvent sink.");
+        }
+
+        if (auto* modCallbackSource = SKSE::GetModCallbackEventSource()) {
+            modCallbackSource->AddEventSink(FillPowerWatcher::GetSingleton());
+            logger::info("[Events] Registered ModCallbackEvent sink.");
+            registeredAnything = true;
+        } else {
+            logger::warn("[Events] Could not register ModCallbackEvent sink.");
         }
 
         if (auto* eventSourceHolder = RE::ScriptEventSourceHolder::GetSingleton()) {

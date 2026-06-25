@@ -49,6 +49,7 @@ namespace Settings {
     inline bool g_disableForVampire = true;
     inline bool g_enableTears = true;
     inline bool g_enableTearsWithSM = false;
+    inline bool g_useFillPower = false;
 
     inline constexpr float DEFAULT_PERK_RATE_REDUCTION = 50.0f;
     inline bool g_enablePerkGate = false;

@@ -15,4 +15,5 @@ namespace WaterskinUtils {
     void OnInGameSessionReady();
     void OnObjectEquipped(RE::FormID baseObjectFormID, RE::TESObjectREFR* actorRef);
     void SetSystemEnabled(bool enabled);
+    void SyncFillPower();
 }

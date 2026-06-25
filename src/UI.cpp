@@ -428,20 +428,35 @@ void __stdcall UI::RenderSettings() {
     }
 
     Heading("Keybinds");
+
+    bool useFillPower = Settings::g_useFillPower;
+    if (ImGui::Checkbox("Fill via Power", &useFillPower)) {
+        Settings::g_useFillPower = useFillPower;
+        if (useFillPower) TearsWidget::CancelBinding();
+        Settings::SaveToINI();
+        Hotkeys::RefreshBindings();
+        WaterskinUtils::SyncFillPower();
+    }
+    ImGui::TextColored(GOLD_DIM, "Adds a Castable Power and Disables the Hotkey");
+
     if (BeginSettingsTable("keybind_tbl")) {
         const bool awaitingFill = TearsWidget::IsAwaitingBinding() && TearsWidget::GetPendingBinding() == "fill";
         RowLabel("Drink / Fill at Water");
-        if (awaitingFill) {
+        if (Settings::g_useFillPower) {
+            ImGui::TextUnformatted("Using Power");
+        } else if (awaitingFill) {
             ImGui::TextUnformatted("press a key...");
         } else {
             ImGui::TextUnformatted(Settings::GetKeyName(Settings::g_fillKey).c_str());
         }
-        ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
-        if (awaitingFill) {
-            if (ImGui::Button("Cancel##fill")) TearsWidget::CancelBinding();
-        } else {
-            if (ImGui::Button("Rebind##fill")) TearsWidget::BeginBinding("fill");
+        if (!Settings::g_useFillPower) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            if (awaitingFill) {
+                if (ImGui::Button("Cancel##fill")) TearsWidget::CancelBinding();
+            } else {
+                if (ImGui::Button("Rebind##fill")) TearsWidget::BeginBinding("fill");
+            }
         }
 
         const bool awaitingToggle =

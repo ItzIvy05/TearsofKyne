@@ -104,6 +104,7 @@ namespace Settings {
             g_disableForVampire = true;
             g_enableTears = true;
             g_enableTearsWithSM = false;
+            g_useFillPower = false;
             g_enablePerkGate = false;
             g_perkForms = "";
             g_perkRateReduction = DEFAULT_PERK_RATE_REDUCTION;
@@ -282,6 +283,8 @@ namespace Settings {
                 g_enableTears = ParseBool(value, true);
             } else if (key == "bEnableTearsWithSM") {
                 g_enableTearsWithSM = ParseBool(value, false);
+            } else if (key == "bUseFillPower") {
+                g_useFillPower = ParseBool(value, false);
             } else if (key == "bEnablePerkGate") {
                 g_enablePerkGate = ParseBool(value, false);
             } else if (key == "sPerkForms") {
@@ -337,6 +340,7 @@ namespace Settings {
             {"bDisableForVampire", g_disableForVampire ? "1" : "0"},
             {"bEnableTears", g_enableTears ? "1" : "0"},
             {"bEnableTearsWithSM", g_enableTearsWithSM ? "1" : "0"},
+            {"bUseFillPower", g_useFillPower ? "1" : "0"},
             {"bEnablePerkGate", g_enablePerkGate ? "1" : "0"},
             {"sPerkForms", g_perkForms},
             {"fPerkRateReduction", std::format("{}", g_perkRateReduction)},
@@ -382,6 +386,18 @@ namespace Settings {
             }
         }
 
+        const std::string logComment = "; bEnableLogging=1 writes a debug log; 0 (default)";
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const size_t firstNonSpace = lines[i].find_first_not_of(" \t");
+            if (firstNonSpace == std::string::npos) continue;
+            if (lines[i].compare(firstNonSpace, 14, "bEnableLogging") == 0) {
+                if (i == 0 || lines[i - 1] != logComment) {
+                    lines.insert(lines.begin() + i, logComment);
+                }
+                break;
+            }
+        }
+
         std::ofstream out(path, std::ios::trunc);
         if (!out.is_open()) {
             logger::error("[Settings] Could not write INI to '{}'.", path);
@@ -406,6 +422,9 @@ namespace Settings {
         if (anyMissing) {
             for (size_t i = 0; i < values.size(); ++i) {
                 if (!written[i]) {
+                    if (values[i].first == "bEnableLogging") {
+                        out << logComment << "\n";
+                    }
                     out << values[i].first << "=" << values[i].second << "\n";
                 }
             }

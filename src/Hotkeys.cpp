@@ -20,12 +20,14 @@ namespace Hotkeys {
         void RegisterAll() {
             auto* keyHandler = KeyHandler::GetSingleton();
 
-            g_fillHandle = keyHandler->Register(Settings::g_fillKey, KeyEventType::KEY_DOWN, [] {
-                auto* taskInterface = SKSE::GetTaskInterface();
-                if (taskInterface) {
-                    taskInterface->AddTask([] { WaterskinUtils::TryFill(); });
-                }
-            });
+            if (!Settings::g_useFillPower) {
+                g_fillHandle = keyHandler->Register(Settings::g_fillKey, KeyEventType::KEY_DOWN, [] {
+                    auto* taskInterface = SKSE::GetTaskInterface();
+                    if (taskInterface) {
+                        taskInterface->AddTask([] { WaterskinUtils::TryFill(); });
+                    }
+                });
+            }
 
             if (Settings::g_toggleWidgetKey != 0) {
                 g_toggleWidgetHandle = keyHandler->Register(Settings::g_toggleWidgetKey, KeyEventType::KEY_DOWN, [] {
