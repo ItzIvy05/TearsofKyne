@@ -19,6 +19,7 @@ namespace Localization {
             {"$TOK_CouldNotDrink", "I could not drink from my waterskin."},
             {"$TOK_SheatheFirst", "I should sheathe my weapon first."},
             {"$TOK_CannotFillCombat", "I cannot do that during combat."},
+            {"$TOK_DeathThirst", "You succumbed to dehydration."},
             {"$TOK_StageQuenched", "I'm Quenched."},
             {"$TOK_StageSated", "I'm Sated."},
             {"$TOK_StageThirsty", "I'm Thirsty."},

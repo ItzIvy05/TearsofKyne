@@ -49,6 +49,9 @@ public:
     [[nodiscard]] float GetLastGameTime() const;
     void SetLastGameTime(float value);
 
+    [[nodiscard]] float GetHoursWithoutDrink() const;
+    void SetHoursWithoutDrink(float value);
+
 private:
     WaterNeedManager() = default;
 
@@ -58,6 +61,7 @@ private:
     mutable std::mutex _mutex;
     float _thirstLevel = 0.0f;
     float _lastGameTime = -1.0f;
+    float _hoursWithoutDrink = 0.0f;
     bool _systemEnabled = true;
     std::array<std::int32_t, 4> _storedBottleCounts{};
 };

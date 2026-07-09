@@ -22,6 +22,7 @@ namespace Serialization {
         const auto lastGameTime = manager->GetLastGameTime();
         const auto systemEnabled = manager->IsSystemEnabled();
         const auto storedBottleCounts = manager->GetStoredBottleCounts();
+        const auto hoursWithoutDrink = manager->GetHoursWithoutDrink();
 
         serialization->WriteRecordData(level);
         serialization->WriteRecordData(lastGameTime);
@@ -29,6 +30,7 @@ namespace Serialization {
         for (const auto count : storedBottleCounts) {
             serialization->WriteRecordData(count);
         }
+        serialization->WriteRecordData(hoursWithoutDrink);
     }
 
     void OnLoad(SKSE::SerializationInterface* serialization)
@@ -47,6 +49,7 @@ namespace Serialization {
             float lastGameTime = -1.0f;
             bool systemEnabled = true;
             std::array<std::int32_t, 4> storedBottleCounts{};
+            float hoursWithoutDrink = 0.0f;
 
             serialization->ReadRecordData(level);
             serialization->ReadRecordData(lastGameTime);
@@ -58,12 +61,17 @@ namespace Serialization {
                 }
             }
 
+            if (version >= 3) {
+                serialization->ReadRecordData(hoursWithoutDrink);
+            }
+
             g_loadedSaveData.store(true);
 
             WaterNeedManager::GetSingleton()->ForceSet(level);
             WaterNeedManager::GetSingleton()->SetLastGameTime(lastGameTime);
             WaterNeedManager::GetSingleton()->SetSystemEnabled(systemEnabled);
             WaterNeedManager::GetSingleton()->SetStoredBottleCounts(storedBottleCounts);
+            WaterNeedManager::GetSingleton()->SetHoursWithoutDrink(hoursWithoutDrink);
         }
     }
 
@@ -74,6 +82,7 @@ namespace Serialization {
         WaterNeedManager::GetSingleton()->SetLastGameTime(-1.0f);
         WaterNeedManager::GetSingleton()->SetSystemEnabled(true);
         WaterNeedManager::GetSingleton()->ClearStoredBottleCounts();
+        WaterNeedManager::GetSingleton()->SetHoursWithoutDrink(0.0f);
         TearsWidget::EndGameSession(false);
         TearsWidget::Refresh();
     }

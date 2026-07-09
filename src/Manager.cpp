@@ -158,6 +158,7 @@ void WaterNeedManager::OnNewGame() {
         std::scoped_lock lock(_mutex);
         _thirstLevel = 0.0f;
         _lastGameTime = GetCurrentGameTime();
+        _hoursWithoutDrink = 0.0f;
         _systemEnabled = true;
         _storedBottleCounts.fill(0);
     }
@@ -207,6 +208,7 @@ void WaterNeedManager::Tick() {
     int currentStage = 0;
     bool changed = false;
     bool systemEnabled = true;
+    float hoursWithoutDrink = 0.0f;
 
     {
         std::scoped_lock lock(_mutex);
@@ -232,12 +234,14 @@ void WaterNeedManager::Tick() {
                     rate *= (1.0f - reduction / 100.0f);
                 }
                 _thirstLevel = std::clamp(_thirstLevel + (hoursPassed * rate), 0.0f, 100.0f);
+                _hoursWithoutDrink += hoursPassed;
                 changed = true;
             }
         }
 
         currentStage = StageFromLevel(_thirstLevel);
         systemEnabled = _systemEnabled;
+        hoursWithoutDrink = _hoursWithoutDrink;
     }
 
     SyncHydrationStageSpell(currentStage, systemEnabled);
@@ -245,6 +249,15 @@ void WaterNeedManager::Tick() {
 
     if (changed && currentStage > previousStage) {
         TearsWidget::ShowNotification(GetStageNotificationText(currentStage).c_str());
+    }
+
+    if (systemEnabled && Settings::g_deathByDehydration && hoursWithoutDrink >= Settings::DEATH_HOURS_WITHOUT_WATER) {
+        if (!player->IsDead()) {
+            TearsWidget::ShowNotification(Localization::Get("$TOK_DeathThirst").c_str());
+            player->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kHealth,
+                                                           -1000000.0f);
+            logger::info("[Tears of Kyne] Player died of dehydration.");
+        }
     }
 }
 
@@ -255,6 +268,7 @@ void WaterNeedManager::Drink(float amount) {
     {
         std::scoped_lock lock(_mutex);
         _thirstLevel = std::clamp(_thirstLevel - amount, 0.0f, 100.0f);
+        _hoursWithoutDrink = 0.0f;
         stage = StageFromLevel(_thirstLevel);
         systemEnabled = _systemEnabled;
     }
@@ -270,6 +284,9 @@ void WaterNeedManager::ForceSet(float value) {
     {
         std::scoped_lock lock(_mutex);
         _thirstLevel = std::clamp(value, 0.0f, 100.0f);
+        if (_thirstLevel <= 0.0f) {
+            _hoursWithoutDrink = 0.0f;
+        }
         stage = StageFromLevel(_thirstLevel);
         systemEnabled = _systemEnabled;
     }
@@ -330,6 +347,16 @@ float WaterNeedManager::GetLastGameTime() const {
 void WaterNeedManager::SetLastGameTime(float value) {
     std::scoped_lock lock(_mutex);
     _lastGameTime = value;
+}
+
+float WaterNeedManager::GetHoursWithoutDrink() const {
+    std::scoped_lock lock(_mutex);
+    return _hoursWithoutDrink;
+}
+
+void WaterNeedManager::SetHoursWithoutDrink(float value) {
+    std::scoped_lock lock(_mutex);
+    _hoursWithoutDrink = std::max(0.0f, value);
 }
 
 int WaterNeedManager::StageFromLevel(float level) const {

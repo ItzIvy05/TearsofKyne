@@ -100,11 +100,17 @@ namespace Settings {
             g_hudY = DEFAULT_HUD_Y;
             g_widgetScale = DEFAULT_WIDGET_SCALE;
             g_hudVisible = true;
+            g_widgetAutoHide = false;
+            g_widgetHoldSeconds = 5;
             g_pauseNeedsInJail = true;
             g_disableForVampire = true;
+            g_deathByDehydration = false;
             g_enableTears = true;
             g_enableTearsWithSM = false;
             g_useFillPower = false;
+            g_enableDirtyWater = false;
+            g_riskLow = 15.0f;
+            g_riskFoul = 90.0f;
             g_enablePerkGate = false;
             g_perkForms = "";
             g_perkRateReduction = DEFAULT_PERK_RATE_REDUCTION;
@@ -275,16 +281,37 @@ namespace Settings {
                 }
             } else if (key == "bHudVisible") {
                 g_hudVisible = ParseBool(value, true);
+            } else if (key == "bWidgetAutoHide") {
+                g_widgetAutoHide = ParseBool(value, false);
+            } else if (key == "WidgetHoldSeconds") {
+                try {
+                    g_widgetHoldSeconds = std::clamp(std::stoi(value), 3, 60);
+                } catch (...) {
+                }
             } else if (key == "bPauseNeedsInJail") {
                 g_pauseNeedsInJail = ParseBool(value, true);
             } else if (key == "bDisableForVampire") {
                 g_disableForVampire = ParseBool(value, true);
+            } else if (key == "bDeathByDehydration") {
+                g_deathByDehydration = ParseBool(value, false);
             } else if (key == "bEnableTears") {
                 g_enableTears = ParseBool(value, true);
             } else if (key == "bEnableTearsWithSM") {
                 g_enableTearsWithSM = ParseBool(value, false);
             } else if (key == "bUseFillPower") {
                 g_useFillPower = ParseBool(value, false);
+            } else if (key == "bEnableDirtyWater") {
+                g_enableDirtyWater = ParseBool(value, false);
+            } else if (key == "fRiskLow") {
+                try {
+                    g_riskLow = std::clamp(std::stof(value), 0.0f, 100.0f);
+                } catch (...) {
+                }
+            } else if (key == "fRiskFoul") {
+                try {
+                    g_riskFoul = std::clamp(std::stof(value), 0.0f, 100.0f);
+                } catch (...) {
+                }
             } else if (key == "bEnablePerkGate") {
                 g_enablePerkGate = ParseBool(value, false);
             } else if (key == "sPerkForms") {
@@ -336,11 +363,17 @@ namespace Settings {
             {"HudY", std::to_string(g_hudY)},
             {"WidgetScale", std::to_string(g_widgetScale)},
             {"bHudVisible", g_hudVisible ? "1" : "0"},
+            {"bWidgetAutoHide", g_widgetAutoHide ? "1" : "0"},
+            {"WidgetHoldSeconds", std::to_string(g_widgetHoldSeconds)},
             {"bPauseNeedsInJail", g_pauseNeedsInJail ? "1" : "0"},
             {"bDisableForVampire", g_disableForVampire ? "1" : "0"},
+            {"bDeathByDehydration", g_deathByDehydration ? "1" : "0"},
             {"bEnableTears", g_enableTears ? "1" : "0"},
             {"bEnableTearsWithSM", g_enableTearsWithSM ? "1" : "0"},
             {"bUseFillPower", g_useFillPower ? "1" : "0"},
+            {"bEnableDirtyWater", g_enableDirtyWater ? "1" : "0"},
+            {"fRiskLow", std::format("{}", g_riskLow)},
+            {"fRiskFoul", std::format("{}", g_riskFoul)},
             {"bEnablePerkGate", g_enablePerkGate ? "1" : "0"},
             {"sPerkForms", g_perkForms},
             {"fPerkRateReduction", std::format("{}", g_perkRateReduction)},

@@ -24,7 +24,9 @@ namespace Settings {
 
     inline constexpr std::uint32_t SERIAL_UID = 'WTRN';
     inline constexpr std::uint32_t SERIAL_RECORD = 'THST';
-    inline constexpr std::uint32_t SERIAL_VER = 2;
+    inline constexpr std::uint32_t SERIAL_VER = 3;
+
+    inline constexpr float DEATH_HOURS_WITHOUT_WATER = 120.0f;
 
     inline Difficulty g_difficulty = Difficulty::Medium;
     inline float g_thirstRate = DIFFICULTY_RATES[1];
@@ -45,11 +47,17 @@ namespace Settings {
     inline int g_hudY = DEFAULT_HUD_Y;
     inline int g_widgetScale = DEFAULT_WIDGET_SCALE;
     inline bool g_hudVisible = true;
+    inline bool g_widgetAutoHide = false;
+    inline int g_widgetHoldSeconds = 5;
     inline bool g_pauseNeedsInJail = true;
     inline bool g_disableForVampire = true;
+    inline bool g_deathByDehydration = false;
     inline bool g_enableTears = true;
     inline bool g_enableTearsWithSM = false;
     inline bool g_useFillPower = false;
+    inline bool g_enableDirtyWater = false;
+    inline float g_riskLow = 15.0f;
+    inline float g_riskFoul = 90.0f;
 
     inline constexpr float DEFAULT_PERK_RATE_REDUCTION = 50.0f;
     inline bool g_enablePerkGate = false;

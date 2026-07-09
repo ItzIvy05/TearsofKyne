@@ -1,6 +1,7 @@
 #include "Utils.h"
 
 #include <optional>
+#include <random>
 
 #include "Localization.h"
 #include "Manager.h"
@@ -9,9 +10,7 @@
 namespace WaterskinUtils {
     namespace {
         constexpr std::array<RE::FormID, 4> TRACKED_BOTTLE_FORM_IDS = {0x00000800, 0x00000802, 0x00000803, 0x00000804};
-
-        constexpr std::array<const char*, 4> TRACKED_BOTTLE_EDITOR_IDS = {"IvyWaterBottle01", "IvyWaterBottle02",
-                                                                          "IvyWaterBottle03", "IvyWaterBottle"};
+        constexpr std::array<const char*, 4> TRACKED_BOTTLE_EDITOR_IDS = {"IvyWaterBottle01", "IvyWaterBottle02", "IvyWaterBottle03", "IvyWaterBottle"};
 
         constexpr const char* FILLED_WATERSKIN_EDITOR_ID = "IvyWaterBottle01";
         constexpr const char* EMPTY_WATERSKIN_EDITOR_ID = "IvyWaterBottle";
@@ -34,6 +33,18 @@ namespace WaterskinUtils {
         constexpr const char* FILL_POWER_EDITOR_ID = "IvyFillWaterPower";
         RE::SpellItem* g_fillPower = nullptr;
         bool g_loggedFillPowerFailure = false;
+
+        constexpr const char* DIRTY_WATER_ENABLED_GLOBAL_EDITOR_ID = "IvyDirtyWaterEnabled";
+        constexpr const char* FOUL_LOCATIONS_LIST_EDITOR_ID = "IvyFoulWaterLocations";
+        constexpr const char* DIRTY_DISEASE_EDITOR_ID = "Ivy_DiseaseBogFever";
+        constexpr const char* IMMUNE_RACES_LIST_EDITOR_ID = "IvyDirtyWaterImmuneRaces";
+        constexpr std::array<const char*, 3> DIRTY_BOTTLE_EDITOR_IDS = {"IvyWaterskinDirty01", "IvyWaterskinDirty02", "IvyWaterskinDirty03"};
+        constexpr std::array<const char*, 3> FOUL_BOTTLE_EDITOR_IDS = {"IvyWaterskinFoul01", "IvyWaterskinFoul02", "IvyWaterskinFoul03"};
+        std::array<RE::TESBoundObject*, 3> g_dirtyBottleForms{};
+        std::array<RE::TESBoundObject*, 3> g_foulBottleForms{};
+        RE::SpellItem* g_dirtyDisease = nullptr;
+        RE::BGSListForm* g_immuneRaces = nullptr;
+        RE::BGSListForm* g_foulLocations = nullptr;
 
         float GetCurrentGameTime() {
             auto* calendar = RE::Calendar::GetSingleton();
@@ -248,15 +259,70 @@ namespace WaterskinUtils {
             }
         }
 
+        bool IsInFoulRegion() {
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!player) {
+                return false;
+            }
+
+            if (!g_foulLocations) {
+                g_foulLocations = RE::TESForm::LookupByEditorID<RE::BGSListForm>(FOUL_LOCATIONS_LIST_EDITOR_ID);
+            }
+            if (!g_foulLocations) {
+                return false;
+            }
+
+            auto* location = player->GetCurrentLocation();
+            int guard = 0;
+            while (location && guard++ < 16) {
+                if (g_foulLocations->HasForm(location)) {
+                    return true;
+                }
+                location = location->parentLoc;
+            }
+            return false;
+        }
+
+        RE::TESBoundObject* FindRefillableSkinForm(RE::PlayerCharacter* player) {
+            if (!player) {
+                return nullptr;
+            }
+
+            if (g_trackedBottleForms[3] && player->GetItemCount(g_trackedBottleForms[3]) > 0) {
+                return g_trackedBottleForms[3];
+            }
+
+            RE::TESBoundObject* partials[] = {g_trackedBottleForms[2], g_dirtyBottleForms[2], g_foulBottleForms[2],
+                                              g_trackedBottleForms[1], g_dirtyBottleForms[1], g_foulBottleForms[1]};
+            for (auto* form : partials) {
+                if (form && player->GetItemCount(form) > 0) {
+                    return form;
+                }
+            }
+
+            return nullptr;
+        }
+
         void CommitWaterskinFill() {
             auto* player = RE::PlayerCharacter::GetSingleton();
             if (!player) {
                 return;
             }
 
-            const auto refillableBottleIndex = FindRefillableBottleIndex(player);
-            if (refillableBottleIndex.has_value()) {
-                ReplaceTrackedBottle(player, *refillableBottleIndex, 0);
+            auto* refillable = FindRefillableSkinForm(player);
+            if (refillable) {
+                RE::TESBoundObject* targetFull = g_trackedBottleForms[0];
+                if (Settings::g_enableDirtyWater && WaterNeedManager::GetSingleton()->IsSystemEnabled()) {
+                    auto* dirtyTarget = IsInFoulRegion() ? g_foulBottleForms[0] : g_dirtyBottleForms[0];
+                    if (dirtyTarget) {
+                        targetFull = dirtyTarget;
+                    }
+                }
+
+                if (targetFull) {
+                    player->RemoveItem(refillable, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+                    player->AddObjectToContainer(targetFull, nullptr, 1, nullptr);
+                }
             }
 
             const auto currentStateText = GetCurrentStateNotificationText();
@@ -314,6 +380,11 @@ namespace WaterskinUtils {
                 if (!g_trackedBottleForms[i]) {
                     allTrackedResolved = false;
                 }
+            }
+
+            for (std::size_t i = 0; i < DIRTY_BOTTLE_EDITOR_IDS.size(); ++i) {
+                g_dirtyBottleForms[i] = LookupBoundObjectByEditorID(DIRTY_BOTTLE_EDITOR_IDS[i]);
+                g_foulBottleForms[i] = LookupBoundObjectByEditorID(FOUL_BOTTLE_EDITOR_IDS[i]);
             }
 
             const bool resolved = g_filledWaterskin != nullptr && g_emptyWaterskin != nullptr && allTrackedResolved;
@@ -462,12 +533,99 @@ namespace WaterskinUtils {
             }
             TearsWidget::Refresh();
         }
+
+        bool IsImmuneToDirtyWater(RE::PlayerCharacter* player) {
+            if (!g_immuneRaces) {
+                g_immuneRaces = RE::TESForm::LookupByEditorID<RE::BGSListForm>(IMMUNE_RACES_LIST_EDITOR_ID);
+            }
+            if (!g_immuneRaces || !player) {
+                return false;
+            }
+            auto* race = player->GetRace();
+            return race && g_immuneRaces->HasForm(race);
+        }
+
+        void RollDirtyDisease(RE::PlayerCharacter* player, bool foul) {
+            if (!player || IsImmuneToDirtyWater(player)) {
+                return;
+            }
+
+            const float risk = foul ? Settings::g_riskFoul : Settings::g_riskLow;
+            if (risk <= 0.0f) {
+                return;
+            }
+
+            static std::mt19937 rng{std::random_device{}()};
+            const int roll = std::uniform_int_distribution<int>(1, 100)(rng);
+            if (roll > static_cast<int>(risk)) {
+                return;
+            }
+
+            if (!g_dirtyDisease) {
+                g_dirtyDisease = RE::TESForm::LookupByEditorID<RE::SpellItem>(DIRTY_DISEASE_EDITOR_ID);
+            }
+            if (g_dirtyDisease && !player->HasSpell(g_dirtyDisease)) {
+                player->AddSpell(g_dirtyDisease);
+                logger::info("[WaterskinUtils] Applied dirty water sickness.");
+            }
+        }
+
+        bool HandleDirtyDrink(RE::PlayerCharacter* player, RE::FormID baseObjectFormID) {
+            int charge = -1;
+            bool foul = false;
+            for (int i = 0; i < 3; ++i) {
+                if (g_dirtyBottleForms[i] && g_dirtyBottleForms[i]->GetFormID() == baseObjectFormID) {
+                    charge = i;
+                    foul = false;
+                    break;
+                }
+                if (g_foulBottleForms[i] && g_foulBottleForms[i]->GetFormID() == baseObjectFormID) {
+                    charge = i;
+                    foul = true;
+                    break;
+                }
+            }
+
+            if (charge < 0) {
+                return false;
+            }
+
+            auto& tierForms = foul ? g_foulBottleForms : g_dirtyBottleForms;
+
+            if (IsAlreadyQuenched()) {
+                AddTrackedBottle(player, tierForms[charge], 1);
+                QueueInventoryMenuRefresh();
+                TearsWidget::ShowNotification(Localization::Get("$TOK_AlreadyQuenched").c_str());
+                TearsWidget::Refresh();
+                return true;
+            }
+
+            RE::TESBoundObject* nextForm = (charge < 2) ? tierForms[charge + 1] : g_trackedBottleForms[3];
+            if (!AddTrackedBottle(player, nextForm, 1)) {
+                TearsWidget::ShowNotification(Localization::Get("$TOK_CouldNotDrink").c_str());
+                return true;
+            }
+
+            WaterNeedManager::GetSingleton()->Drink(Settings::g_drinkAmount);
+            RollDirtyDisease(player, foul);
+            QueueInventoryMenuRefresh();
+
+            const auto currentStateText = GetCurrentStateNotificationText();
+            TearsWidget::ShowNotification(currentStateText.c_str());
+            TearsWidget::Refresh();
+            return true;
+        }
     }
 
     void Initialize() {
         g_filledWaterskin = nullptr;
         g_emptyWaterskin = nullptr;
         g_trackedBottleForms.fill(nullptr);
+        g_dirtyBottleForms.fill(nullptr);
+        g_foulBottleForms.fill(nullptr);
+        g_dirtyDisease = nullptr;
+        g_immuneRaces = nullptr;
+        g_foulLocations = nullptr;
         g_pendingStartingBottleGrant = false;
         g_loggedLookupFailure = false;
         ResolveWaterskinForms(true, false);
@@ -498,7 +656,7 @@ namespace WaterskinUtils {
             return;
         }
 
-        if (!FindRefillableBottleIndex(player).has_value()) {
+        if (!FindRefillableSkinForm(player)) {
             TearsWidget::ShowNotification(Localization::Get("$TOK_WaterskinFilled").c_str());
             return;
         }
@@ -697,9 +855,18 @@ namespace WaterskinUtils {
         }
     }
 
+    void SyncDirtyWater() {
+        const bool enabled = Settings::g_enableDirtyWater && WaterNeedManager::GetSingleton()->IsSystemEnabled();
+
+        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>(DIRTY_WATER_ENABLED_GLOBAL_EDITOR_ID)) {
+            global->value = enabled ? 1.0f : 0.0f;
+        }
+    }
+
     void OnInGameSessionReady() {
         EnsureWaterskinFormsReady();
         SyncFillPower();
+        SyncDirtyWater();
 
         if (!g_pendingStartingBottleGrant) {
             return;
@@ -759,6 +926,10 @@ namespace WaterskinUtils {
                 TearsWidget::Refresh();
                 return;
             }
+
+            if (HandleDirtyDrink(player, baseObjectFormID)) {
+                return;
+            }
         }
 
         TryDrinkFromHydratingDrink(baseObjectFormID);
@@ -802,10 +973,11 @@ namespace WaterskinUtils {
         if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyEnableMod")) {
             global->value = enabled ? 1.0f : 0.0f;
         } else {
-            logger::warn("[WaterskinUtils] IvyEnableMod global not found — is Tears of Kyne.esp loaded?");
+            logger::warn("[WaterskinUtils] IvyEnableMod global not found, is Tears of Kyne.esp loaded?");
         }
 
         SyncFillPower();
+        SyncDirtyWater();
         TearsWidget::Refresh();
     }
 }

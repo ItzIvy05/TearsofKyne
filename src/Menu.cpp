@@ -19,6 +19,23 @@ namespace {
     int s_widgetIndex = -1;
     std::string s_widgetRoot;
 
+    int s_lastStage = -1;
+    std::atomic<bool> s_peekActive{false};
+    std::chrono::steady_clock::time_point s_peekStart{};
+    std::atomic<int> s_fadeGen{0};
+    std::atomic<int> s_currentAlpha{0};
+    std::atomic<bool> s_autoHideVisible{false};
+
+    constexpr int s_finalStage = 4;
+
+    void ResetAutoHideState() {
+        ++s_fadeGen;
+        s_currentAlpha.store(0);
+        s_autoHideVisible.store(false);
+        s_peekActive.store(false);
+        s_lastStage = -1;
+    }
+
     constexpr const char* HUD_MENU = "HUD Menu";
 
     RE::TESGlobal* g_indexGlobal = nullptr;
@@ -62,15 +79,29 @@ RE::GPtr<RE::GFxMovieView> TearsWidget::GetHudMovie() {
 }
 
 bool TearsWidget::ResolveWidget() {
-    if (s_widgetIndex >= 0 && !s_widgetRoot.empty()) return true;
     if (!g_readyGlobal || !g_indexGlobal) return false;
-    if (g_readyGlobal->value < 0.5f) return false;
+    if (g_readyGlobal->value < 0.5f) {
+        s_widgetIndex = -1;
+        s_widgetRoot.clear();
+        return false;
+    }
 
     const int idx = static_cast<int>(g_indexGlobal->value + 0.5f);
     if (idx < 0) return false;
 
+    if (idx == s_widgetIndex && !s_widgetRoot.empty()) return true;
+
+    auto movie = GetHudMovie();
+    if (!movie) return false;
+
+    std::string root = std::format("_root.WidgetContainer.{}.widget", idx);
+    RE::GFxValue probe;
+    if (!movie->GetVariable(&probe, root.c_str()) || probe.IsUndefined() || probe.IsNull()) {
+        return false;
+    }
+
     s_widgetIndex = idx;
-    s_widgetRoot = std::format("_root.WidgetContainer.{}.widget", idx);
+    s_widgetRoot = std::move(root);
     logger::info("[TearsWidget] Resolved widget root '{}'.", s_widgetRoot);
     return true;
 }
@@ -104,21 +135,95 @@ void TearsWidget::InvokeArg(const char* method, double arg) {
     movie->Invoke((s_widgetRoot + method).c_str(), nullptr, &a, 1);
 }
 
+void TearsWidget::ApplyWidgetAlpha(int alpha) {
+    if (alpha <= 0) {
+        SetVarBool("._visible", false);
+        return;
+    }
+    SetVarBool("._visible", true);
+    SetVar("._alpha", static_cast<double>(alpha));
+}
+
+void TearsWidget::StartFade(int targetAlpha) {
+    if (s_currentAlpha.load() == targetAlpha) return;
+
+    const int gen = ++s_fadeGen;
+    const int start = s_currentAlpha.load();
+
+    std::thread([gen, start, targetAlpha] {
+        constexpr int steps = 12;
+        for (int i = 1; i <= steps; ++i) {
+            if (s_fadeGen.load() != gen) return;
+            const int alpha = start + (targetAlpha - start) * i / steps;
+            s_currentAlpha.store(alpha);
+            if (auto* task = SKSE::GetTaskInterface()) {
+                task->AddTask([alpha] { TearsWidget::ApplyWidgetAlpha(alpha); });
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        }
+    }).detach();
+}
+
+void TearsWidget::ApplyAutoHideVisibility(bool baseShow, int stage) {
+    const bool desired = baseShow && (stage >= s_finalStage || s_peekActive.load());
+    if (desired == s_autoHideVisible.load()) return;
+    if (desired) {
+        s_peekStart = std::chrono::steady_clock::now();
+    }
+    s_autoHideVisible.store(desired);
+    StartFade(desired ? 100 : 0);
+}
+
 void TearsWidget::Refresh() {
     RefreshSuppression();
     if (!IsReady()) return;
 
     const auto* mgr = WaterNeedManager::GetSingleton();
-    const int frame = std::clamp(mgr->GetStage() + 1, 1, 5);
-    const bool show =
+    const int stage = mgr->GetStage();
+    const int frame = std::clamp(stage + 1, 1, 5);
+    const bool baseShow =
         Settings::g_hudVisible && !s_menuSuppressed.load() && mgr->IsSystemEnabled() && !mgr->IsPausedForVampire();
 
-    SetVarBool("._visible", show);
-    if (show) {
-        SetPosition(Settings::g_hudX, Settings::g_hudY);
-        SetScale(Settings::g_widgetScale);
-        InvokeArg(".setBathColorLevel", static_cast<double>(frame));
+    if (Settings::g_widgetAutoHide && s_lastStage != -1 && stage != s_lastStage) {
+        if (stage >= s_finalStage) {
+            s_peekActive.store(false);
+        } else {
+            s_peekActive.store(true);
+            s_peekStart = std::chrono::steady_clock::now();
+        }
     }
+    s_lastStage = stage;
+
+    SetPosition(Settings::g_hudX, Settings::g_hudY);
+    SetScale(Settings::g_widgetScale);
+    InvokeArg(".setBathColorLevel", static_cast<double>(frame));
+
+    if (Settings::g_widgetAutoHide) {
+        ApplyAutoHideVisibility(baseShow, stage);
+    } else {
+        ++s_fadeGen;
+        s_currentAlpha.store(baseShow ? 100 : 0);
+        s_autoHideVisible.store(baseShow);
+        SetVarBool("._visible", baseShow);
+        if (baseShow) SetVar("._alpha", 100.0);
+    }
+}
+
+void TearsWidget::TickAutoHide() {
+    if (!Settings::g_widgetAutoHide) return;
+    if (!IsReady()) return;
+
+    if (s_peekActive.load()) {
+        const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - s_peekStart).count();
+        if (elapsed >= std::clamp(Settings::g_widgetHoldSeconds, 3, 60)) {
+            s_peekActive.store(false);
+        }
+    }
+
+    const auto* mgr = WaterNeedManager::GetSingleton();
+    const bool baseShow =
+        Settings::g_hudVisible && !s_menuSuppressed.load() && mgr->IsSystemEnabled() && !mgr->IsPausedForVampire();
+    ApplyAutoHideVisibility(baseShow, mgr->GetStage());
 }
 
 void TearsWidget::SetPosition(int x, int y) {
@@ -222,6 +327,7 @@ void TearsWidget::BeginGameSessionTransition(bool requireRaceMenuExit) {
     s_raceMenuSeen.store(false);
     s_widgetIndex = -1;
     s_widgetRoot.clear();
+    ResetAutoHideState();
     RefreshSuppression();
 }
 
@@ -245,9 +351,9 @@ void TearsWidget::EndGameSession(bool cancelPendingWaterskin) {
     s_raceMenuSeen.store(false);
     s_widgetIndex = -1;
     s_widgetRoot.clear();
+    ResetAutoHideState();
     if (cancelPendingWaterskin) WaterskinUtils::CancelPendingStartingWaterskin();
     RefreshSuppression();
 }
 
 bool TearsWidget::IsInGameSession() { return s_inGameSession.load(); }
-bool TearsWidget::IsMenuSuppressed() { return s_menuSuppressed.load(); }

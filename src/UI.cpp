@@ -262,13 +262,14 @@ void UI::Register() {
         return;
     }
     SKSEMenuFramework::SetSection("Tears of Kyne");
-    SKSEMenuFramework::AddSectionItem("Settings", UI::RenderSettings);
-    logger::info("[UI] Registered settings page.");
+    SKSEMenuFramework::AddSectionItem("System", UI::RenderSystem);
+    SKSEMenuFramework::AddSectionItem("Gameplay", UI::RenderGameplay);
+    SKSEMenuFramework::AddSectionItem("UI & Keybind", UI::RenderUIKeybind);
+    logger::info("[UI] Registered settings pages.");
 }
 
-void __stdcall UI::RenderSettings() {
+void __stdcall UI::RenderSystem() {
     PushGoldTheme();
-    PollKeyCapture();
 
     Heading("System");
     if (BeginSettingsTable("system_tbl")) {
@@ -292,6 +293,12 @@ void __stdcall UI::RenderSettings() {
         ImGui::EndTable();
     }
 
+    PopGoldTheme();
+}
+
+void __stdcall UI::RenderGameplay() {
+    PushGoldTheme();
+
     Heading("Gameplay");
     if (BeginSettingsTable("gameplay_tbl")) {
         static const char* difficultyNames[] = {"Easy", "Medium", "Hard", "Very Hard"};
@@ -305,6 +312,7 @@ void __stdcall UI::RenderSettings() {
                 Settings::SaveToINI();
                 TearsWidget::Refresh();
             }
+            ImGui::TextColored(GOLD_DIM, "Locked to Hard / Very Hard by Perk Gate.");
         } else {
             if (ImGui::Combo("##difficulty", &difficulty, difficultyNames, 4)) {
                 Settings::ApplyDifficulty(static_cast<Settings::Difficulty>(std::clamp(difficulty, 0, 3)));
@@ -327,57 +335,102 @@ void __stdcall UI::RenderSettings() {
             Settings::SaveToINI();
             TearsWidget::Refresh();
         }
+
+        bool deathToggle = Settings::g_deathByDehydration;
+        RowLabel("Death by Dehydration");
+        if (ImGui::Checkbox("##deathdehydration", &deathToggle)) {
+            Settings::g_deathByDehydration = deathToggle;
+            Settings::SaveToINI();
+        }
+        ImGui::EndTable();
+    }
+    if (Settings::g_deathByDehydration) {
+        ImGui::TextColored(GOLD_DIM, "You will die if you go 5 days without drinking.");
+    }
+
+    Heading("Perk Gate");
+    if (BeginSettingsTable("perk_tbl")) {
+        bool perkGate = Settings::g_enablePerkGate;
+        RowLabel("Enable Perk Gate");
+        if (ImGui::Checkbox("##perkgate", &perkGate)) {
+            Settings::g_enablePerkGate = perkGate;
+            if (perkGate && Settings::g_difficulty != Settings::Difficulty::Hard &&
+                Settings::g_difficulty != Settings::Difficulty::VeryHard) {
+                Settings::ApplyDifficulty(Settings::Difficulty::Hard);
+            }
+            Settings::SaveToINI();
+            TearsWidget::Refresh();
+        }
+
+        float reduction = Settings::g_perkRateReduction;
+        RowLabel("Rate Reduction");
+        if (ImGui::SliderFloat("##perkrate", &reduction, 15.0f, 75.0f, "%.0f%%")) {
+            Settings::g_perkRateReduction = std::clamp(reduction, 15.0f, 75.0f);
+        }
+        if (ImGui::IsItemDeactivatedAfterEdit()) {
+            Settings::SaveToINI();
+        }
         ImGui::EndTable();
     }
 
-    if (Settings::g_enablePerkGate) {
-        ImGui::TextColored(GOLD_DIM, "Difficulty locked to Hard / Very Hard by Perk Gate.");
+    static char perkBuf[1024] = {};
+    static bool perkBufInit = false;
+    if (!perkBufInit) {
+        std::strncpy(perkBuf, Settings::g_perkForms.c_str(), sizeof(perkBuf) - 1);
+        perkBufInit = true;
+    }
+    ImGui::TextColored(GOLD_DIM, "Perk  (Plugin.esm|FormID)");
+    if (ImGui::InputText("##perklist", perkBuf, sizeof(perkBuf))) {
+        Settings::g_perkForms = perkBuf;
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        Settings::SaveToINI();
+        Settings::g_perkFormsDirty.store(true);
     }
 
-    if (ImGui::CollapsingHeader("Perk Gate")) {
-        if (BeginSettingsTable("perk_tbl")) {
-            bool perkGate = Settings::g_enablePerkGate;
-            RowLabel("Enable Perk Gate");
-            if (ImGui::Checkbox("##perkgate", &perkGate)) {
-                Settings::g_enablePerkGate = perkGate;
-                if (perkGate && Settings::g_difficulty != Settings::Difficulty::Hard &&
-                    Settings::g_difficulty != Settings::Difficulty::VeryHard) {
-                    Settings::ApplyDifficulty(Settings::Difficulty::Hard);
-                }
-                Settings::SaveToINI();
-                TearsWidget::Refresh();
-            }
+    const int parsed = Settings::GetParsedPerkCount();
+    const int requested = Settings::GetRequestedPerkCount();
+    ImGui::TextColored(GOLD_DIM, "%d / %d Perk Parsed", parsed, requested);
 
-            float reduction = Settings::g_perkRateReduction;
-            RowLabel("Rate Reduction");
-            if (ImGui::SliderFloat("##perkrate", &reduction, 15.0f, 75.0f, "%.0f%%")) {
-                Settings::g_perkRateReduction = std::clamp(reduction, 15.0f, 75.0f);
+    Heading("Dirty Water");
+    if (BeginSettingsTable("dirty_tbl")) {
+        bool enableDirty = Settings::g_enableDirtyWater;
+        RowLabel("Enable Dirty Water");
+        if (ImGui::Checkbox("##enabledirty", &enableDirty)) {
+            Settings::g_enableDirtyWater = enableDirty;
+            Settings::SaveToINI();
+            WaterskinUtils::SyncDirtyWater();
+        }
+
+        if (Settings::g_enableDirtyWater) {
+            float riskLow = Settings::g_riskLow;
+            RowLabel("River Sickness Chance");
+            if (ImGui::SliderFloat("##risklow", &riskLow, 0.0f, 100.0f, "%.0f%%")) {
+                Settings::g_riskLow = std::clamp(riskLow, 0.0f, 100.0f);
             }
             if (ImGui::IsItemDeactivatedAfterEdit()) {
                 Settings::SaveToINI();
             }
-            ImGui::EndTable();
-        }
 
-        static char perkBuf[1024] = {};
-        static bool perkBufInit = false;
-        if (!perkBufInit) {
-            std::strncpy(perkBuf, Settings::g_perkForms.c_str(), sizeof(perkBuf) - 1);
-            perkBufInit = true;
+            float riskFoul = Settings::g_riskFoul;
+            RowLabel("Swamp Sickness Chance");
+            if (ImGui::SliderFloat("##riskfoul", &riskFoul, 0.0f, 100.0f, "%.0f%%")) {
+                Settings::g_riskFoul = std::clamp(riskFoul, 0.0f, 100.0f);
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+                Settings::SaveToINI();
+            }
         }
-        ImGui::TextColored(GOLD_DIM, "Perk  (Plugin.esm|FormID)");
-        if (ImGui::InputText("##perklist", perkBuf, sizeof(perkBuf))) {
-            Settings::g_perkForms = perkBuf;
-        }
-        if (ImGui::IsItemDeactivatedAfterEdit()) {
-            Settings::SaveToINI();
-            Settings::g_perkFormsDirty.store(true);
-        }
-
-        const int parsed = Settings::GetParsedPerkCount();
-        const int requested = Settings::GetRequestedPerkCount();
-        ImGui::TextColored(GOLD_DIM, "%d / %d Perk Parsed", parsed, requested);
+        ImGui::EndTable();
     }
+    ImGui::TextColored(GOLD_DIM, "Water from the wild must be boiled at a cooking pot before it is safe.");
+
+    PopGoldTheme();
+}
+
+void __stdcall UI::RenderUIKeybind() {
+    PushGoldTheme();
+    PollKeyCapture();
 
     Heading("Widget");
     if (BeginSettingsTable("widget_tbl")) {
@@ -397,7 +450,29 @@ void __stdcall UI::RenderSettings() {
         if (ImGui::IsItemDeactivatedAfterEdit()) {
             Settings::SaveToINI();
         }
+
+        bool autoHide = Settings::g_widgetAutoHide;
+        RowLabel("Auto-Hide Widget");
+        if (ImGui::Checkbox("##autohide", &autoHide)) {
+            Settings::g_widgetAutoHide = autoHide;
+            Settings::SaveToINI();
+            TearsWidget::Refresh();
+        }
+
+        if (Settings::g_widgetAutoHide) {
+            int hold = Settings::g_widgetHoldSeconds;
+            RowLabel("Hold Time");
+            if (ImGui::SliderInt("##holdsec", &hold, 3, 60, "%d s")) {
+                Settings::g_widgetHoldSeconds = std::clamp(hold, 3, 60);
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+                Settings::SaveToINI();
+            }
+        }
         ImGui::EndTable();
+    }
+    if (Settings::g_widgetAutoHide) {
+        ImGui::TextColored(GOLD_DIM, "Widget fades in when your thirst changes, then hides. Stays at full thirst.");
     }
 
     Heading("Position");

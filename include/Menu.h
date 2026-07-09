@@ -4,6 +4,7 @@ class TearsWidget {
 public:
     static void Init();
     static void Refresh();
+    static void TickAutoHide();
     static void SetPosition(int x, int y);
     static void SetScale(int scalePercent);
 
@@ -21,13 +22,16 @@ public:
     [[nodiscard]] static const std::string& GetPendingBinding();
 
     [[nodiscard]] static bool IsInGameSession();
-    [[nodiscard]] static bool IsMenuSuppressed();
-    [[nodiscard]] static bool IsReady();
 
 private:
+    [[nodiscard]] static bool IsReady();
     [[nodiscard]] static bool ResolveWidget();
     [[nodiscard]] static RE::GPtr<RE::GFxMovieView> GetHudMovie();
     static void SetVar(const char* member, double value);
     static void SetVarBool(const char* member, bool value);
     static void InvokeArg(const char* method, double arg);
+
+    static void ApplyWidgetAlpha(int alpha);
+    static void StartFade(int targetAlpha);
+    static void ApplyAutoHideVisibility(bool baseShow, int stage);
 };
