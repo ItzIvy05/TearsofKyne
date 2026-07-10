@@ -99,6 +99,10 @@ namespace {
             shouldEnable = Settings::g_enableTears;
         }
 
+        if (WaterNeedManager::GetSingleton()->IsPausedForVampire()) {
+            shouldEnable = false;
+        }
+
         if (WaterNeedManager::GetSingleton()->IsSystemEnabled() != shouldEnable) {
             WaterskinUtils::SetSystemEnabled(shouldEnable);
             if (shouldEnable) {

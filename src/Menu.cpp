@@ -73,6 +73,7 @@ void TearsWidget::Init() {
 RE::GPtr<RE::GFxMovieView> TearsWidget::GetHudMovie() {
     auto* ui = RE::UI::GetSingleton();
     if (!ui) return nullptr;
+    if (ui->IsMenuOpen("Loading Menu")) return nullptr;
     auto menu = ui->GetMenu(HUD_MENU);
     if (!menu || !menu->uiMovie) return nullptr;
     return menu->uiMovie;
@@ -335,6 +336,13 @@ void TearsWidget::NotifyMenuEvent(const char* menuName, bool opening) {
     const std::string_view name = menuName ? menuName : "";
     if (opening && name == "Main Menu") {
         EndGameSession();
+        return;
+    }
+    if (opening && name == "Loading Menu") {
+        s_widgetIndex = -1;
+        s_widgetRoot.clear();
+        ResetAutoHideState();
+        RefreshSuppression();
         return;
     }
     if (s_sessionPending.load() && s_requireRaceMenuExit.load() && name == "RaceSex Menu" && opening) {

@@ -45,8 +45,12 @@ namespace {
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!player) return false;
 
-        if (auto* keyword = RE::TESForm::LookupByEditorID<RE::BGSKeyword>("Vampire")) {
-            if (player->HasKeyword(keyword)) return true;
+        static RE::BGSKeyword* vampireKeyword = nullptr;
+        if (!vampireKeyword) {
+            vampireKeyword = RE::TESForm::LookupByEditorID<RE::BGSKeyword>("Vampire");
+        }
+        if (vampireKeyword && player->HasKeyword(vampireKeyword)) {
+            return true;
         }
 
         if (auto* race = player->GetRace()) {
@@ -209,6 +213,7 @@ void WaterNeedManager::Tick() {
     bool changed = false;
     bool systemEnabled = true;
     float hoursWithoutDrink = 0.0f;
+    const bool vampirePaused = Settings::g_disableForVampire && IsPlayerVampire();
 
     {
         std::scoped_lock lock(_mutex);
@@ -225,7 +230,6 @@ void WaterNeedManager::Tick() {
 
         if (hoursPassed > 0.0f) {
             const bool jailPaused = Settings::g_pauseNeedsInJail && IsPlayerInJail();
-            const bool vampirePaused = Settings::g_disableForVampire && IsPlayerVampire();
 
             if (!jailPaused && !vampirePaused) {
                 float rate = Settings::g_thirstRate;
@@ -244,14 +248,15 @@ void WaterNeedManager::Tick() {
         hoursWithoutDrink = _hoursWithoutDrink;
     }
 
-    SyncHydrationStageSpell(currentStage, systemEnabled);
+    SyncHydrationStageSpell(vampirePaused ? -1 : currentStage, systemEnabled);
     TearsWidget::Refresh();
 
     if (changed && currentStage > previousStage) {
         TearsWidget::ShowNotification(GetStageNotificationText(currentStage).c_str());
     }
 
-    if (systemEnabled && Settings::g_deathByDehydration && hoursWithoutDrink >= Settings::DEATH_HOURS_WITHOUT_WATER) {
+    if (systemEnabled && !vampirePaused && Settings::g_deathByDehydration && hoursWithoutDrink >= Settings::DEATH_HOURS_WITHOUT_WATER) {
+        
         if (!player->IsDead()) {
             TearsWidget::ShowNotification(Localization::Get("$TOK_DeathThirst").c_str());
             player->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kHealth,
