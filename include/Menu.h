@@ -25,8 +25,7 @@ public:
 
 private:
     [[nodiscard]] static bool IsReady();
-    [[nodiscard]] static bool ResolveWidget();
-    [[nodiscard]] static RE::GPtr<RE::GFxMovieView> GetHudMovie();
+    [[nodiscard]] static RE::GPtr<RE::GFxMovieView> GetWidgetMovie();
     static void SetVar(const char* member, double value);
     static void SetVarBool(const char* member, bool value);
     static void InvokeArg(const char* method, double arg);

@@ -259,8 +259,7 @@ void WaterNeedManager::Tick() {
         
         if (!player->IsDead()) {
             TearsWidget::ShowNotification(Localization::Get("$TOK_DeathThirst").c_str());
-            player->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kHealth,
-                                                           -1000000.0f);
+            player->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kHealth, -1000000.0f);
             logger::info("[Tears of Kyne] Player died of dehydration.");
         }
     }

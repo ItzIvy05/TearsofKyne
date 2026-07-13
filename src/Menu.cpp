@@ -16,8 +16,7 @@ namespace {
     std::atomic<bool> s_raceMenuSeen{false};
     std::string s_pendingBinding;
 
-    int s_widgetIndex = -1;
-    std::string s_widgetRoot;
+    constexpr const char* WIDGET_ROOT = "_root.widget";
 
     int s_lastStage = -1;
     std::atomic<bool> s_peekActive{false};
@@ -36,10 +35,57 @@ namespace {
         s_lastStage = -1;
     }
 
-    constexpr const char* HUD_MENU = "HUD Menu";
+    std::atomic<bool> s_showQueued{false};
 
-    RE::TESGlobal* g_indexGlobal = nullptr;
-    RE::TESGlobal* g_readyGlobal = nullptr;
+    class TearsWidgetMenu : public RE::IMenu {
+    public:
+        static constexpr const char* MENU_NAME = "TearsWidgetMenu";
+        static constexpr const char* FILE_NAME = "exported/widgets/TearsStatus";
+
+        TearsWidgetMenu() {
+            depthPriority = 0;
+            menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen, RE::UI_MENU_FLAGS::kAllowSaving,
+                          RE::UI_MENU_FLAGS::kRequiresUpdate, RE::UI_MENU_FLAGS::kAdvancesUnderPauseMenu);
+            if (RE::BSScaleformManager::GetSingleton()->LoadMovie(this, uiMovie, FILE_NAME)) {
+                logger::info("[TearsWidget] Widget movie loaded.");
+            } else {
+                logger::error("[TearsWidget] Could not load '{}.swf' into widget menu.", FILE_NAME);
+            }
+            s_showQueued.store(false);
+        }
+
+        static RE::IMenu* Creator() { return new TearsWidgetMenu(); }
+    };
+
+    void EnsureMenuShown() {
+        auto* ui = RE::UI::GetSingleton();
+        auto* queue = RE::UIMessageQueue::GetSingleton();
+        if (!ui || !queue) return;
+        if (ui->IsMenuOpen(TearsWidgetMenu::MENU_NAME)) {
+            s_showQueued.store(false);
+            return;
+        }
+        if (!ui->IsMenuOpen("HUD Menu")) return;
+        if (s_showQueued.exchange(true)) return;
+        queue->AddMessage(TearsWidgetMenu::MENU_NAME, RE::UI_MESSAGE_TYPE::kShow, nullptr);
+        logger::info("[TearsWidget] Widget menu show queued.");
+    }
+
+    void HideMenu() {
+        s_showQueued.store(false);
+        auto* ui = RE::UI::GetSingleton();
+        auto* queue = RE::UIMessageQueue::GetSingleton();
+        if (!ui || !queue) return;
+        if (!ui->IsMenuOpen(TearsWidgetMenu::MENU_NAME)) return;
+        queue->AddMessage(TearsWidgetMenu::MENU_NAME, RE::UI_MESSAGE_TYPE::kHide, nullptr);
+    }
+
+    void ForceRootVisible(RE::GFxMovieView* movie) {
+        if (!movie) return;
+        RE::GFxValue rootVisible;
+        rootVisible.SetBoolean(true);
+        movie->SetVariable("_root._visible", rootVisible);
+    }
 
     bool ShouldSuppressForMenus() {
         auto* player = RE::PlayerCharacter::GetSingleton();
@@ -61,79 +107,48 @@ namespace {
 }
 
 void TearsWidget::Init() {
-    g_indexGlobal = RE::TESForm::LookupByEditorID<RE::TESGlobal>("TearsWidgetIndex");
-    g_readyGlobal = RE::TESForm::LookupByEditorID<RE::TESGlobal>("TearsWidgetReady");
-    if (!g_indexGlobal || !g_readyGlobal) {
-        logger::warn("[TearsWidget] TearsWidgetIndex/TearsWidgetReady globals not found.");
-    } else {
-        logger::info("[TearsWidget] Globals resolved.");
+    auto* ui = RE::UI::GetSingleton();
+    if (!ui) {
+        logger::error("[TearsWidget] UI singleton unavailable, widget menu not registered.");
+        return;
     }
+    ui->Register(TearsWidgetMenu::MENU_NAME, TearsWidgetMenu::Creator);
+    logger::info("[TearsWidget] Widget menu registered.");
 }
 
-RE::GPtr<RE::GFxMovieView> TearsWidget::GetHudMovie() {
+RE::GPtr<RE::GFxMovieView> TearsWidget::GetWidgetMovie() {
     auto* ui = RE::UI::GetSingleton();
     if (!ui) return nullptr;
     if (ui->IsMenuOpen("Loading Menu")) return nullptr;
-    auto menu = ui->GetMenu(HUD_MENU);
+    auto menu = ui->GetMenu(TearsWidgetMenu::MENU_NAME);
     if (!menu || !menu->uiMovie) return nullptr;
     return menu->uiMovie;
 }
 
-bool TearsWidget::ResolveWidget() {
-    if (!g_readyGlobal || !g_indexGlobal) return false;
-    if (g_readyGlobal->value < 0.5f) {
-        s_widgetIndex = -1;
-        s_widgetRoot.clear();
-        return false;
-    }
-
-    const int idx = static_cast<int>(g_indexGlobal->value + 0.5f);
-    if (idx < 0) return false;
-
-    if (idx == s_widgetIndex && !s_widgetRoot.empty()) return true;
-
-    auto movie = GetHudMovie();
-    if (!movie) return false;
-
-    std::string root = std::format("_root.WidgetContainer.{}.widget", idx);
-    RE::GFxValue probe;
-    if (!movie->GetVariable(&probe, root.c_str()) || probe.IsUndefined() || probe.IsNull()) {
-        return false;
-    }
-
-    s_widgetIndex = idx;
-    s_widgetRoot = std::move(root);
-    logger::info("[TearsWidget] Resolved widget root '{}'.", s_widgetRoot);
-    return true;
-}
-
-bool TearsWidget::IsReady() { return ResolveWidget() && GetHudMovie() != nullptr; }
+bool TearsWidget::IsReady() { return GetWidgetMovie() != nullptr; }
 
 void TearsWidget::SetVar(const char* member, double value) {
-    if (!ResolveWidget()) return;
-    auto movie = GetHudMovie();
+    auto movie = GetWidgetMovie();
     if (!movie) return;
     RE::GFxValue v;
     v.SetNumber(value);
-    movie->SetVariable((s_widgetRoot + member).c_str(), v);
+    movie->SetVariable((std::string(WIDGET_ROOT) + member).c_str(), v);
 }
 
 void TearsWidget::SetVarBool(const char* member, bool value) {
-    if (!ResolveWidget()) return;
-    auto movie = GetHudMovie();
+    auto movie = GetWidgetMovie();
     if (!movie) return;
     RE::GFxValue v;
     v.SetBoolean(value);
-    movie->SetVariable((s_widgetRoot + member).c_str(), v);
+    movie->SetVariable((std::string(WIDGET_ROOT) + member).c_str(), v);
 }
 
 void TearsWidget::InvokeArg(const char* method, double arg) {
-    if (!ResolveWidget()) return;
-    auto movie = GetHudMovie();
+    auto movie = GetWidgetMovie();
     if (!movie) return;
     RE::GFxValue a;
     a.SetNumber(arg);
-    movie->Invoke((s_widgetRoot + method).c_str(), nullptr, &a, 1);
+    movie->Invoke((std::string(WIDGET_ROOT) + method).c_str(), nullptr, &a, 1);
 }
 
 void TearsWidget::ApplyWidgetAlpha(int alpha) {
@@ -141,6 +156,7 @@ void TearsWidget::ApplyWidgetAlpha(int alpha) {
         SetVarBool("._visible", false);
         return;
     }
+    ForceRootVisible(GetWidgetMovie().get());
     SetVarBool("._visible", true);
     SetVar("._alpha", static_cast<double>(alpha));
 }
@@ -178,6 +194,8 @@ void TearsWidget::ApplyAutoHideVisibility(bool baseShow, int stage) {
 void TearsWidget::Refresh() {
     RefreshSuppression();
     if (!IsReady()) return;
+
+    ForceRootVisible(GetWidgetMovie().get());
 
     const auto* mgr = WaterNeedManager::GetSingleton();
     const int stage = mgr->GetStage();
@@ -230,8 +248,8 @@ void TearsWidget::TickAutoHide() {
 void TearsWidget::SetPosition(int x, int y) {
     Settings::g_hudX = x;
     Settings::g_hudY = y;
-    InvokeArg(".setPositionX", static_cast<double>(x));
-    InvokeArg(".setPositionY", static_cast<double>(y));
+    SetVar("._x", static_cast<double>(x));
+    SetVar("._y", static_cast<double>(y));
 }
 
 void TearsWidget::SetScale(int scalePercent) {
@@ -280,6 +298,8 @@ bool TearsWidget::CaptureBindingKey(std::uint32_t scanCode) {
 }
 
 void TearsWidget::RefreshSuppression() {
+    EnsureMenuShown();
+
     if (!s_inGameSession.load() && !s_sessionPending.load()) {
         auto* player = RE::PlayerCharacter::GetSingleton();
         auto* ui = RE::UI::GetSingleton();
@@ -326,21 +346,24 @@ void TearsWidget::BeginGameSessionTransition(bool requireRaceMenuExit) {
     s_inGameSession.store(false);
     s_requireRaceMenuExit.store(requireRaceMenuExit);
     s_raceMenuSeen.store(false);
-    s_widgetIndex = -1;
-    s_widgetRoot.clear();
     ResetAutoHideState();
     RefreshSuppression();
 }
 
 void TearsWidget::NotifyMenuEvent(const char* menuName, bool opening) {
     const std::string_view name = menuName ? menuName : "";
+    if (name == "HUD Menu") {
+        if (opening) {
+            EnsureMenuShown();
+        } else {
+            HideMenu();
+        }
+    }
     if (opening && name == "Main Menu") {
         EndGameSession();
         return;
     }
     if (opening && name == "Loading Menu") {
-        s_widgetIndex = -1;
-        s_widgetRoot.clear();
         ResetAutoHideState();
         RefreshSuppression();
         return;
@@ -357,8 +380,6 @@ void TearsWidget::EndGameSession(bool cancelPendingWaterskin) {
     s_inGameSession.store(false);
     s_requireRaceMenuExit.store(false);
     s_raceMenuSeen.store(false);
-    s_widgetIndex = -1;
-    s_widgetRoot.clear();
     ResetAutoHideState();
     if (cancelPendingWaterskin) WaterskinUtils::CancelPendingStartingWaterskin();
     RefreshSuppression();

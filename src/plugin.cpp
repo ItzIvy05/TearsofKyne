@@ -156,7 +156,7 @@ namespace {
         }
         TearsWidget::Refresh();
         g_runtimeBootstrapHandled.store(true);
-        logger::info("[Tears of Kyne] In  world startup fallback applied.");
+        logger::info("[Tears of Kyne] In-world startup fallback applied.");
     }
 
     void StartUpdateThread() {
