@@ -14,6 +14,7 @@ namespace Localization {
             {"$TOK_NeedWater", "I need to stand in water to fill my waterskin."},
             {"$TOK_ReceivedWaterskin", "I received a water skin."},
             {"$TOK_WaterskinEmpty", "My waterskin is empty."},
+            {"$TOK_BottleEmpty", "This bottle is empty."},
             {"$TOK_WaterskinFilled", "My waterskins are full."},
             {"$TOK_NoFilledWaterskin", "I do not have a filled waterskin."},
             {"$TOK_CouldNotDrink", "I could not drink from my waterskin."},

@@ -111,6 +111,7 @@ namespace Settings {
             g_enableDirtyWater = false;
             g_riskLow = 15.0f;
             g_riskFoul = 90.0f;
+            g_bottleQuench = 50.0f;
             g_enablePerkGate = false;
             g_perkForms = "";
             g_perkRateReduction = DEFAULT_PERK_RATE_REDUCTION;
@@ -123,7 +124,6 @@ namespace Settings {
         g_difficulty = difficulty;
         g_thirstRate = DIFFICULTY_RATES[index];
         g_drinkAmount = DRINK_AMOUNTS[index];
-        g_fillBonus = FILL_BONUSES[index];
     }
 
     namespace {
@@ -312,6 +312,11 @@ namespace Settings {
                     g_riskFoul = std::clamp(std::stof(value), 0.0f, 100.0f);
                 } catch (...) {
                 }
+            } else if (key == "fBottleQuench") {
+                try {
+                    g_bottleQuench = std::clamp(std::stof(value), 15.0f, 75.0f);
+                } catch (...) {
+                }
             } else if (key == "bEnablePerkGate") {
                 g_enablePerkGate = ParseBool(value, false);
             } else if (key == "sPerkForms") {
@@ -374,6 +379,7 @@ namespace Settings {
             {"bEnableDirtyWater", g_enableDirtyWater ? "1" : "0"},
             {"fRiskLow", std::format("{}", g_riskLow)},
             {"fRiskFoul", std::format("{}", g_riskFoul)},
+            {"fBottleQuench", std::format("{}", g_bottleQuench)},
             {"bEnablePerkGate", g_enablePerkGate ? "1" : "0"},
             {"sPerkForms", g_perkForms},
             {"fPerkRateReduction", std::format("{}", g_perkRateReduction)},

@@ -5,7 +5,6 @@ namespace Settings {
 
     inline constexpr float DIFFICULTY_RATES[4] = {3.0f, 6.5f, 10.0f, 16.0f};
     inline constexpr float DRINK_AMOUNTS[4] = {65.0f, 55.0f, 45.0f, 35.0f};
-    inline constexpr float FILL_BONUSES[4] = {20.0f, 15.0f, 10.0f, 5.0f};
     inline constexpr const char* DIFFICULTY_NAMES[4] = {"Easy", "Medium", "Hard", "Very Hard"};
 
     inline constexpr const char* DEFAULT_PLUGIN_NAME = "Tears of Kyne.esp";
@@ -31,7 +30,6 @@ namespace Settings {
     inline Difficulty g_difficulty = Difficulty::Medium;
     inline float g_thirstRate = DIFFICULTY_RATES[1];
     inline float g_drinkAmount = DRINK_AMOUNTS[1];
-    inline float g_fillBonus = FILL_BONUSES[1];
 
     inline std::string g_pluginName = DEFAULT_PLUGIN_NAME;
     inline RE::FormID g_filledWaterskinFormID = DEFAULT_FILLED_WATERSKIN_FORM_ID;
@@ -58,6 +56,7 @@ namespace Settings {
     inline bool g_enableDirtyWater = false;
     inline float g_riskLow = 15.0f;
     inline float g_riskFoul = 90.0f;
+    inline float g_bottleQuench = 50.0f;
 
     inline constexpr float DEFAULT_PERK_RATE_REDUCTION = 50.0f;
     inline bool g_enablePerkGate = false;

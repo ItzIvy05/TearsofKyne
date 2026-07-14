@@ -342,6 +342,16 @@ void __stdcall UI::RenderGameplay() {
             Settings::g_deathByDehydration = deathToggle;
             Settings::SaveToINI();
         }
+
+        float bottleQuench = Settings::g_bottleQuench;
+        RowLabel("Bottle Quench");
+        if (ImGui::SliderFloat("##bottlequench", &bottleQuench, 15.0f, 75.0f, "%.0f%%")) {
+            Settings::g_bottleQuench = std::clamp(bottleQuench, 15.0f, 75.0f);
+        }
+        if (ImGui::IsItemDeactivatedAfterEdit()) {
+            Settings::SaveToINI();
+        }
+
         ImGui::EndTable();
     }
     if (Settings::g_deathByDehydration) {

@@ -46,12 +46,28 @@ namespace WaterskinUtils {
         RE::BGSListForm* g_immuneRaces = nullptr;
         RE::BGSListForm* g_foulLocations = nullptr;
 
+        constexpr std::array<const char*, 3> ALCOHOL_KEYWORD_EDITOR_IDS = {
+            "IvyMeadBottleKeyword", "IvyWineBottleKeyword", "IvySujammaBottleKeyword"
+        };
+
+        constexpr std::array<const char*, 3> EMPTY_BOTTLE_EDITOR_IDS = {
+            "IvyEmptyMeadBottle", "IvyEmptyWineBottle","IvyEmptySujammaBottle"
+        };
+
+        constexpr std::array<const char*, 3> BOTTLED_WATER_EDITOR_IDS = {
+            "IvyBottledWaterMead", "IvyBottledWaterWine","IvyBottledWaterSujamma"
+        };
+
+        std::array<RE::TESBoundObject*, 3> g_emptyReusableBottles{};
+        std::array<RE::TESBoundObject*, 3> g_bottledWaterForms{};
+
         float GetCurrentGameTime() {
             auto* calendar = RE::Calendar::GetSingleton();
             return calendar ? calendar->GetCurrentGameTime() : -1.0f;
         }
 
         bool EnsureWaterskinFormsReady(bool logFailure = true);
+        void FillReusableBottles(RE::PlayerCharacter* player);
 
         bool IsAlreadyQuenched() { return WaterNeedManager::GetSingleton()->GetStage() == 0; }
 
@@ -205,6 +221,8 @@ namespace WaterskinUtils {
                 ReplaceTrackedBottle(player, *refillableBottleIndex, 0);
             }
 
+            FillReusableBottles(player);
+
             if (!IsAlreadyQuenched()) {
                 WaterNeedManager::GetSingleton()->ForceSet(0.0f);
             }
@@ -303,17 +321,54 @@ namespace WaterskinUtils {
             return nullptr;
         }
 
+        bool HasEmptyReusableBottles(RE::PlayerCharacter* player) {
+            if (!player) {
+                return false;
+            }
+            for (auto* form : g_emptyReusableBottles) {
+                if (form && player->GetItemCount(form) > 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void FillReusableBottles(RE::PlayerCharacter* player) {
+            if (!player) {
+                return;
+            }
+
+            for (std::size_t i = 0; i < g_emptyReusableBottles.size(); ++i) {
+                auto* empty = g_emptyReusableBottles[i];
+                auto* target = g_bottledWaterForms[i];
+                if (!empty || !target) {
+                    continue;
+                }
+
+                const auto count = player->GetItemCount(empty);
+                if (count <= 0) {
+                    continue;
+                }
+
+                player->RemoveItem(empty, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+                player->AddObjectToContainer(target, nullptr, count, nullptr);
+            }
+        }
+
         void CommitWaterskinFill() {
             auto* player = RE::PlayerCharacter::GetSingleton();
             if (!player) {
                 return;
             }
 
+            const bool dirty = Settings::g_enableDirtyWater && WaterNeedManager::GetSingleton()->IsSystemEnabled();
+            const bool foul = dirty && IsInFoulRegion();
+
             auto* refillable = FindRefillableSkinForm(player);
             if (refillable) {
                 RE::TESBoundObject* targetFull = g_trackedBottleForms[0];
-                if (Settings::g_enableDirtyWater && WaterNeedManager::GetSingleton()->IsSystemEnabled()) {
-                    auto* dirtyTarget = IsInFoulRegion() ? g_foulBottleForms[0] : g_dirtyBottleForms[0];
+                if (dirty) {
+                    auto* dirtyTarget = foul ? g_foulBottleForms[0] : g_dirtyBottleForms[0];
                     if (dirtyTarget) {
                         targetFull = dirtyTarget;
                     }
@@ -324,6 +379,8 @@ namespace WaterskinUtils {
                     player->AddObjectToContainer(targetFull, nullptr, 1, nullptr);
                 }
             }
+
+            FillReusableBottles(player);
 
             const auto currentStateText = GetCurrentStateNotificationText();
             TearsWidget::ShowNotification(currentStateText.c_str());
@@ -385,6 +442,11 @@ namespace WaterskinUtils {
             for (std::size_t i = 0; i < DIRTY_BOTTLE_EDITOR_IDS.size(); ++i) {
                 g_dirtyBottleForms[i] = LookupBoundObjectByEditorID(DIRTY_BOTTLE_EDITOR_IDS[i]);
                 g_foulBottleForms[i] = LookupBoundObjectByEditorID(FOUL_BOTTLE_EDITOR_IDS[i]);
+            }
+
+            for (std::size_t i = 0; i < EMPTY_BOTTLE_EDITOR_IDS.size(); ++i) {
+                g_emptyReusableBottles[i] = LookupBoundObjectByEditorID(EMPTY_BOTTLE_EDITOR_IDS[i]);
+                g_bottledWaterForms[i] = LookupBoundObjectByEditorID(BOTTLED_WATER_EDITOR_IDS[i]);
             }
 
             const bool resolved = g_filledWaterskin != nullptr && g_emptyWaterskin != nullptr && allTrackedResolved;
@@ -615,6 +677,70 @@ namespace WaterskinUtils {
             TearsWidget::Refresh();
             return true;
         }
+
+        bool HandleBottledWaterDrink(RE::PlayerCharacter* player, RE::FormID baseObjectFormID) {
+            int type = -1;
+            for (int i = 0; i < 3; ++i) {
+                if (g_bottledWaterForms[i] && g_bottledWaterForms[i]->GetFormID() == baseObjectFormID) {
+                    type = i;
+                    break;
+                }
+            }
+
+            if (type < 0) {
+                return false;
+            }
+
+            if (IsAlreadyQuenched()) {
+                AddTrackedBottle(player, g_bottledWaterForms[type], 1);
+                QueueInventoryMenuRefresh();
+                TearsWidget::ShowNotification(Localization::Get("$TOK_AlreadyQuenched").c_str());
+                TearsWidget::Refresh();
+                return true;
+            }
+
+            AddTrackedBottle(player, g_emptyReusableBottles[type], 1);
+            WaterNeedManager::GetSingleton()->Drink(std::clamp(Settings::g_bottleQuench, 15.0f, 75.0f));
+            QueueInventoryMenuRefresh();
+
+            const auto currentStateText = GetCurrentStateNotificationText();
+            TearsWidget::ShowNotification(currentStateText.c_str());
+            TearsWidget::Refresh();
+            return true;
+        }
+
+        bool HandleEmptyBottleClick(RE::PlayerCharacter* player, RE::FormID baseObjectFormID) {
+            for (int i = 0; i < 3; ++i) {
+                if (g_emptyReusableBottles[i] && g_emptyReusableBottles[i]->GetFormID() == baseObjectFormID) {
+                    AddTrackedBottle(player, g_emptyReusableBottles[i], 1);
+                    QueueInventoryMenuRefresh();
+                    TearsWidget::ShowNotification(Localization::Get("$TOK_BottleEmpty").c_str());
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void HandleAlcoholBottleReturn(RE::PlayerCharacter* player, RE::FormID baseObjectFormID) {
+            auto* form = RE::TESForm::LookupByID(baseObjectFormID);
+            if (!form) {
+                return;
+            }
+
+            auto* boundObject = form->As<RE::TESBoundObject>();
+            if (!boundObject || !boundObject->As<RE::AlchemyItem>()) {
+                return;
+            }
+
+            for (int i = 0; i < 3; ++i) {
+                if (boundObject->HasKeywordByEditorID(ALCOHOL_KEYWORD_EDITOR_IDS[i])) {
+                    if (AddTrackedBottle(player, g_emptyReusableBottles[i], 1)) {
+                        QueueInventoryMenuRefresh();
+                    }
+                    return;
+                }
+            }
+        }
     }
 
     void Initialize() {
@@ -623,6 +749,8 @@ namespace WaterskinUtils {
         g_trackedBottleForms.fill(nullptr);
         g_dirtyBottleForms.fill(nullptr);
         g_foulBottleForms.fill(nullptr);
+        g_emptyReusableBottles.fill(nullptr);
+        g_bottledWaterForms.fill(nullptr);
         g_dirtyDisease = nullptr;
         g_immuneRaces = nullptr;
         g_foulLocations = nullptr;
@@ -656,7 +784,7 @@ namespace WaterskinUtils {
             return;
         }
 
-        if (!FindRefillableSkinForm(player)) {
+        if (!FindRefillableSkinForm(player) && !HasEmptyReusableBottles(player)) {
             TearsWidget::ShowNotification(Localization::Get("$TOK_WaterskinFilled").c_str());
             return;
         }
@@ -930,6 +1058,16 @@ namespace WaterskinUtils {
             if (HandleDirtyDrink(player, baseObjectFormID)) {
                 return;
             }
+
+            if (HandleBottledWaterDrink(player, baseObjectFormID)) {
+                return;
+            }
+
+            if (HandleEmptyBottleClick(player, baseObjectFormID)) {
+                return;
+            }
+
+            HandleAlcoholBottleReturn(player, baseObjectFormID);
         }
 
         TryDrinkFromHydratingDrink(baseObjectFormID);
