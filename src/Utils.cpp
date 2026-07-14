@@ -310,8 +310,7 @@ namespace WaterskinUtils {
                 return g_trackedBottleForms[3];
             }
 
-            RE::TESBoundObject* partials[] = {g_trackedBottleForms[2], g_dirtyBottleForms[2], g_foulBottleForms[2],
-                                              g_trackedBottleForms[1], g_dirtyBottleForms[1], g_foulBottleForms[1]};
+            RE::TESBoundObject* partials[] = {g_trackedBottleForms[2], g_dirtyBottleForms[2], g_foulBottleForms[2], g_trackedBottleForms[1], g_dirtyBottleForms[1], g_foulBottleForms[1]};
             for (auto* form : partials) {
                 if (form && player->GetItemCount(form) > 0) {
                     return form;
@@ -404,8 +403,7 @@ namespace WaterskinUtils {
             return form ? static_cast<RE::TESBoundObject*>(form) : nullptr;
         }
 
-        RE::TESBoundObject* LookupBoundObjectWithFallback(RE::TESDataHandler* dataHandler, RE::FormID formID,
-                                                          const char* editorID) {
+        RE::TESBoundObject* LookupBoundObjectWithFallback(RE::TESDataHandler* dataHandler, RE::FormID formID, const char* editorID) {
             if (dataHandler) {
                 if (auto* form = dataHandler->LookupForm<RE::TESBoundObject>(formID, Settings::g_pluginName.c_str())) {
                     return form;
@@ -425,10 +423,8 @@ namespace WaterskinUtils {
                 return false;
             }
 
-            g_filledWaterskin = LookupBoundObjectWithFallback(dataHandler, Settings::g_filledWaterskinFormID,
-                                                              FILLED_WATERSKIN_EDITOR_ID);
-            g_emptyWaterskin =
-                LookupBoundObjectWithFallback(dataHandler, Settings::g_emptyWaterskinFormID, EMPTY_WATERSKIN_EDITOR_ID);
+            g_filledWaterskin = LookupBoundObjectWithFallback(dataHandler, Settings::g_filledWaterskinFormID, FILLED_WATERSKIN_EDITOR_ID);
+            g_emptyWaterskin = LookupBoundObjectWithFallback(dataHandler, Settings::g_emptyWaterskinFormID, EMPTY_WATERSKIN_EDITOR_ID);
 
             bool allTrackedResolved = true;
             for (std::size_t i = 0; i < TRACKED_BOTTLE_FORM_IDS.size(); ++i) {
