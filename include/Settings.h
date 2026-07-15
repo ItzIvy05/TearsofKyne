@@ -57,6 +57,7 @@ namespace Settings {
     inline float g_riskLow = 15.0f;
     inline float g_riskFoul = 90.0f;
     inline float g_bottleQuench = 50.0f;
+    inline bool g_reuseBottles = true;
 
     inline constexpr float DEFAULT_PERK_RATE_REDUCTION = 50.0f;
     inline bool g_enablePerkGate = false;

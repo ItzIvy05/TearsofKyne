@@ -112,6 +112,7 @@ namespace Settings {
             g_riskLow = 15.0f;
             g_riskFoul = 90.0f;
             g_bottleQuench = 50.0f;
+            g_reuseBottles = true;
             g_enablePerkGate = false;
             g_perkForms = "";
             g_perkRateReduction = DEFAULT_PERK_RATE_REDUCTION;
@@ -317,6 +318,8 @@ namespace Settings {
                     g_bottleQuench = std::clamp(std::stof(value), 15.0f, 75.0f);
                 } catch (...) {
                 }
+            } else if (key == "bReuseBottles") {
+                g_reuseBottles = ParseBool(value, true);
             } else if (key == "bEnablePerkGate") {
                 g_enablePerkGate = ParseBool(value, false);
             } else if (key == "sPerkForms") {
@@ -380,6 +383,7 @@ namespace Settings {
             {"fRiskLow", std::format("{}", g_riskLow)},
             {"fRiskFoul", std::format("{}", g_riskFoul)},
             {"fBottleQuench", std::format("{}", g_bottleQuench)},
+            {"bReuseBottles", g_reuseBottles ? "1" : "0"},
             {"bEnablePerkGate", g_enablePerkGate ? "1" : "0"},
             {"sPerkForms", g_perkForms},
             {"fPerkRateReduction", std::format("{}", g_perkRateReduction)},

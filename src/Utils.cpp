@@ -328,7 +328,7 @@ namespace WaterskinUtils {
         }
 
         bool HasEmptyReusableBottles(RE::PlayerCharacter* player) {
-            if (!player) {
+            if (!player || !Settings::g_reuseBottles) {
                 return false;
             }
             for (auto* form : g_emptyReusableBottles) {
@@ -340,7 +340,7 @@ namespace WaterskinUtils {
         }
 
         void FillReusableBottles(RE::PlayerCharacter* player, bool dirty, bool foul) {
-            if (!player) {
+            if (!player || !Settings::g_reuseBottles) {
                 return;
             }
 
@@ -755,6 +755,10 @@ namespace WaterskinUtils {
         }
 
         void HandleAlcoholBottleReturn(RE::PlayerCharacter* player, RE::FormID baseObjectFormID) {
+            if (!Settings::g_reuseBottles) {
+                return;
+            }
+
             auto* form = RE::TESForm::LookupByID(baseObjectFormID);
             if (!form) {
                 return;
