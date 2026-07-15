@@ -10,7 +10,7 @@
 namespace WaterskinUtils {
     namespace {
         constexpr std::array<RE::FormID, 4> TRACKED_BOTTLE_FORM_IDS = {0x00000800, 0x00000802, 0x00000803, 0x00000804};
-        constexpr std::array<const char*, 4> TRACKED_BOTTLE_EDITOR_IDS = {"IvyWaterBottle01", "IvyWaterBottle02", "IvyWaterBottle03", "IvyWaterBottle"};s
+        constexpr std::array<const char*, 4> TRACKED_BOTTLE_EDITOR_IDS = {"IvyWaterBottle01", "IvyWaterBottle02", "IvyWaterBottle03", "IvyWaterBottle"};
         constexpr const char* FILLED_WATERSKIN_EDITOR_ID = "IvyWaterBottle01";
         constexpr const char* EMPTY_WATERSKIN_EDITOR_ID = "IvyWaterBottle";
         constexpr const char* REFILL_ACTIVATOR_KEYWORD_EDITOR_ID = "IvyRefillActivator";
