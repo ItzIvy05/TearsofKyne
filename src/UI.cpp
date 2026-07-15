@@ -343,6 +343,10 @@ void __stdcall UI::RenderGameplay() {
             Settings::SaveToINI();
         }
 
+        if (Settings::g_deathByDehydration) {
+            ImGui::TextColored(GOLD_DIM, "You will die if you go 5 days without drinking.");
+        }
+
         bool reuseBottles = Settings::g_reuseBottles;
         RowLabel("Reusable Bottles");
         if (ImGui::Checkbox("##reusebottles", &reuseBottles)) {
@@ -362,9 +366,6 @@ void __stdcall UI::RenderGameplay() {
         }
 
         ImGui::EndTable();
-    }
-    if (Settings::g_deathByDehydration) {
-        ImGui::TextColored(GOLD_DIM, "You will die if you go 5 days without drinking.");
     }
 
     Heading("Perk Gate");
