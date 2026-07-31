@@ -1,6 +1,6 @@
 # Tears of Kyne
 
-Local SKSE water-need mod with a local PrismaUI HUD.
+Local SKSE water-need mod
 
 ## Runtime Notes & Configuration
 
