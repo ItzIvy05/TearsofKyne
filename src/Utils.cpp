@@ -1043,6 +1043,10 @@ namespace WaterskinUtils {
         if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyEnableMod")) {
             global->value = WaterNeedManager::GetSingleton()->IsSystemEnabled() ? 1.0f : 0.0f;
         }
+
+        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyLeveledListEnable")) {
+            global->value = WaterNeedManager::GetSingleton()->IsSystemEnabled() ? 0.0f : 100.0f;
+        }
     }
 
     void OnObjectEquipped(RE::FormID baseObjectFormID, RE::TESObjectREFR* actorRef) {
@@ -1150,6 +1154,12 @@ namespace WaterskinUtils {
             global->value = enabled ? 1.0f : 0.0f;
         } else {
             logger::warn("[WaterskinUtils] IvyEnableMod global not found, is Tears of Kyne.esp loaded?");
+        }
+
+        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyLeveledListEnable")) {
+            global->value = enabled ? 0.0f : 100.0f;
+        } else {
+            logger::warn("[WaterskinUtils] IvyLeveledListEnable global not found, is Tears of Kyne.esp loaded?");
         }
 
         SyncFillPower();

@@ -122,6 +122,10 @@ namespace {
             global->value = 1.0f;
         }
 
+        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyLeveledListEnable")) {
+            global->value = 0.0f;
+        }
+
         logger::info("[Tears of Kyne] No existing save data found. Queued first-time startup bottle.");
     }
 
