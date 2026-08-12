@@ -59,6 +59,13 @@ namespace Settings {
     inline float g_bottleQuench = 50.0f;
     inline bool g_reuseBottles = true;
 
+    inline constexpr int SURVIVAL_WIDGET_COUNT = 3;
+
+    inline bool g_survivalWidgetEnabled[SURVIVAL_WIDGET_COUNT] = {false, false, false};
+    inline int g_survivalWidgetX[SURVIVAL_WIDGET_COUNT] = {124, 224, 324};
+    inline int g_survivalWidgetY[SURVIVAL_WIDGET_COUNT] = {330, 330, 330};
+    inline int g_survivalWidgetScale[SURVIVAL_WIDGET_COUNT] = {100, 100, 100};
+
     inline constexpr float DEFAULT_PERK_RATE_REDUCTION = 50.0f;
     inline bool g_enablePerkGate = false;
     inline std::string g_perkForms = "";

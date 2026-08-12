@@ -10,6 +10,7 @@ namespace ImGui = ImGuiMCP;
 #include "Manager.h"
 #include "Menu.h"
 #include "Settings.h"
+#include "SurvivalWidgets.h"
 #include "Utils.h"
 
 namespace {
@@ -477,6 +478,7 @@ void __stdcall UI::RenderUIKeybind() {
             Settings::g_widgetAutoHide = autoHide;
             Settings::SaveToINI();
             TearsWidget::Refresh();
+            SurvivalWidgets::Refresh();
         }
 
         if (Settings::g_widgetAutoHide) {
@@ -520,6 +522,60 @@ void __stdcall UI::RenderUIKeybind() {
     if (ImGui::Button("Reset Position")) {
         TearsWidget::SetPosition(Settings::DEFAULT_HUD_X, Settings::DEFAULT_HUD_Y);
         Settings::SaveToINI();
+    }
+
+    if (SurvivalWidgets::IsAvailable()) {
+        Heading("Survival Mode Widgets");
+        ImGui::TextColored(GOLD_DIM, "Detected Survival Mode Improved. These use its need stages.");
+
+        for (int i = 0; i < Settings::SURVIVAL_WIDGET_COUNT; ++i) {
+            if (!SurvivalWidgets::IsNeedAvailable(i)) continue;
+
+            const char* label = SurvivalWidgets::GetLabel(i);
+            ImGui::PushID(i);
+
+            if (BeginSettingsTable("survival_tbl")) {
+                bool enabled = Settings::g_survivalWidgetEnabled[i];
+                RowLabel(label);
+                if (ImGui::Checkbox("##enabled", &enabled)) {
+                    Settings::g_survivalWidgetEnabled[i] = enabled;
+                    Settings::SaveToINI();
+                    SurvivalWidgets::Refresh();
+                }
+
+                if (Settings::g_survivalWidgetEnabled[i]) {
+                    int scale = Settings::g_survivalWidgetScale[i];
+                    RowLabel("Scale");
+                    if (ImGui::SliderInt("##sscale", &scale, 10, 150, "%d%%")) {
+                        SurvivalWidgets::SetScale(i, scale);
+                    }
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        Settings::SaveToINI();
+                    }
+
+                    int x = Settings::g_survivalWidgetX[i];
+                    RowLabel("X");
+                    if (ImGui::SliderInt("##sposx", &x, 0, 1280)) {
+                        SurvivalWidgets::SetPosition(i, x, Settings::g_survivalWidgetY[i]);
+                    }
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        Settings::SaveToINI();
+                    }
+
+                    int y = Settings::g_survivalWidgetY[i];
+                    RowLabel("Y");
+                    if (ImGui::SliderInt("##sposy", &y, 0, 720)) {
+                        SurvivalWidgets::SetPosition(i, Settings::g_survivalWidgetX[i], y);
+                    }
+                    if (ImGui::IsItemDeactivatedAfterEdit()) {
+                        Settings::SaveToINI();
+                    }
+                }
+                ImGui::EndTable();
+            }
+
+            ImGui::PopID();
+        }
     }
 
     Heading("Keybinds");

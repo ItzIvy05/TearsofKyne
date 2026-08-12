@@ -7,6 +7,7 @@
 #include "Menu.h"
 #include "Serialization.h"
 #include "Settings.h"
+#include "SurvivalWidgets.h"
 #include "UI.h"
 #include "Utils.h"
 #include "logger.h"
@@ -191,6 +192,7 @@ namespace {
                         }
                         ReconcileSystemEnabledState();
                         TearsWidget::TickAutoHide();
+                        SurvivalWidgets::TickAutoHide();
                     });
                 }
             }
@@ -211,6 +213,7 @@ namespace {
                 WaterskinUtils::Initialize();
                 WaterNeedManager::GetSingleton()->InitializeFromSettings();
                 TearsWidget::Init();
+                SurvivalWidgets::Init();
                 TearsWidget::EndGameSession();
                 Events::RegisterAll();
                 Hotkeys::Initialize();
@@ -225,6 +228,7 @@ namespace {
             case SKSE::MessagingInterface::kNewGame:
                 g_runtimeBootstrapHandled.store(false);
                 g_pendingNewGameSurvivalSync.store(true);
+                SurvivalWidgets::ResetSession();
                 TearsWidget::BeginGameSessionTransition(true);
                 WaterNeedManager::GetSingleton()->OnNewGame();
                 WaterskinUtils::CancelPendingStartingWaterskin();
@@ -233,6 +237,7 @@ namespace {
             case SKSE::MessagingInterface::kPostLoadGame:
                 g_runtimeBootstrapHandled.store(false);
                 g_pendingNewGameSurvivalSync.store(false);
+                SurvivalWidgets::ResetSession();
                 TearsWidget::BeginGameSessionTransition(false);
                 WaterNeedManager::GetSingleton()->OnGameLoaded();
                 if (!Serialization::HasLoadedSaveData()) {

@@ -331,6 +331,29 @@ namespace Settings {
                 }
             } else if (key == "bEnableLogging") {
                 g_enableLogging = ParseBool(value, false);
+            } else if (key.rfind("SurvivalWidget", 0) == 0) {
+                static constexpr const char* suffixes[SURVIVAL_WIDGET_COUNT] = {"Cold", "Hunger", "Exhaustion"};
+                for (int i = 0; i < SURVIVAL_WIDGET_COUNT; ++i) {
+                    const std::string base = std::string("SurvivalWidget") + suffixes[i];
+                    if (key == base + "Enabled") {
+                        g_survivalWidgetEnabled[i] = ParseBool(value, false);
+                    } else if (key == base + "X") {
+                        try {
+                            g_survivalWidgetX[i] = std::max(0, std::stoi(value));
+                        } catch (...) {
+                        }
+                    } else if (key == base + "Y") {
+                        try {
+                            g_survivalWidgetY[i] = std::max(0, std::stoi(value));
+                        } catch (...) {
+                        }
+                    } else if (key == base + "Scale") {
+                        try {
+                            g_survivalWidgetScale[i] = std::clamp(std::stoi(value), 10, 150);
+                        } catch (...) {
+                        }
+                    }
+                }
             } else if (key == "Difficulty") {
                 const auto upper = UpperCopy(value);
                 if (upper == "0" || upper == "EASY") {
@@ -390,6 +413,17 @@ namespace Settings {
             {"bEnableLogging", g_enableLogging ? "1" : "0"},
             {"Difficulty", std::to_string(static_cast<int>(g_difficulty))},
         };
+
+        {
+            static constexpr const char* suffixes[SURVIVAL_WIDGET_COUNT] = {"Cold", "Hunger", "Exhaustion"};
+            for (int i = 0; i < SURVIVAL_WIDGET_COUNT; ++i) {
+                const std::string base = std::string("SurvivalWidget") + suffixes[i];
+                values.emplace_back(base + "Enabled", g_survivalWidgetEnabled[i] ? "1" : "0");
+                values.emplace_back(base + "X", std::to_string(g_survivalWidgetX[i]));
+                values.emplace_back(base + "Y", std::to_string(g_survivalWidgetY[i]));
+                values.emplace_back(base + "Scale", std::to_string(g_survivalWidgetScale[i]));
+            }
+        }
 
         std::vector<std::string> lines;
         bool hadFile = false;

@@ -386,3 +386,5 @@ void TearsWidget::EndGameSession(bool cancelPendingWaterskin) {
 }
 
 bool TearsWidget::IsInGameSession() { return s_inGameSession.load(); }
+
+bool TearsWidget::IsSuppressed() { return s_menuSuppressed.load(); }

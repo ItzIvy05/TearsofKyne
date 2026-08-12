@@ -1,6 +1,7 @@
 #include "Events.h"
 
 #include "Menu.h"
+#include "SurvivalWidgets.h"
 #include "Utils.h"
 
 namespace Events {
@@ -25,6 +26,7 @@ namespace Events {
                 
 
                 TearsWidget::NotifyMenuEvent(event->menuName.c_str(), event->opening);
+                SurvivalWidgets::NotifyMenuEvent(event->menuName.c_str(), event->opening);
                 return RE::BSEventNotifyControl::kContinue;
             }
         };
@@ -94,6 +96,45 @@ namespace Events {
                 return RE::BSEventNotifyControl::kContinue;
             }
         };
+
+        class SurvivalNeedWatcher final : public RE::BSTEventSink<RE::TESActiveEffectApplyRemoveEvent> {
+        public:
+            static SurvivalNeedWatcher* GetSingleton()
+            {
+                static SurvivalNeedWatcher instance;
+                return &instance;
+            }
+
+            RE::BSEventNotifyControl ProcessEvent(
+                const RE::TESActiveEffectApplyRemoveEvent* event,
+                RE::BSTEventSource<RE::TESActiveEffectApplyRemoveEvent>*) override
+            {
+                if (!event || !SurvivalWidgets::IsAvailable()) {
+                    return RE::BSEventNotifyControl::kContinue;
+                }
+
+                if (event->target.get() != RE::PlayerCharacter::GetSingleton()) {
+                    return RE::BSEventNotifyControl::kContinue;
+                }
+
+                if (_pending.exchange(true)) {
+                    return RE::BSEventNotifyControl::kContinue;
+                }
+
+                if (auto* task = SKSE::GetTaskInterface()) {
+                    task->AddTask([] {
+                        _pending.store(false);
+                        SurvivalWidgets::Notify();
+                    });
+                } else {
+                    _pending.store(false);
+                }
+                return RE::BSEventNotifyControl::kContinue;
+            }
+
+        private:
+            static inline std::atomic<bool> _pending{false};
+        };
     }
 
     void RegisterAll()
@@ -132,6 +173,16 @@ namespace Events {
                 registeredAnything = true;
             } else {
                 logger::warn("[Events] Could not acquire TESEquipEvent source.");
+            }
+
+            if (SurvivalWidgets::IsAvailable()) {
+                if (auto* effectSource = eventSourceHolder->GetEventSource<RE::TESActiveEffectApplyRemoveEvent>()) {
+                    effectSource->AddEventSink(SurvivalNeedWatcher::GetSingleton());
+                    logger::info("[Events] Registered TESActiveEffectApplyRemoveEvent sink.");
+                    registeredAnything = true;
+                } else {
+                    logger::warn("[Events] Could not acquire TESActiveEffectApplyRemoveEvent source.");
+                }
             }
         } else {
             logger::warn("[Events] ScriptEventSourceHolder unavailable.");

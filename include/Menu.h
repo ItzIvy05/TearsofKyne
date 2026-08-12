@@ -22,6 +22,7 @@ public:
     [[nodiscard]] static const std::string& GetPendingBinding();
 
     [[nodiscard]] static bool IsInGameSession();
+    [[nodiscard]] static bool IsSuppressed();
 
 private:
     [[nodiscard]] static bool IsReady();

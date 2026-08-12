@@ -6,6 +6,7 @@
 #include "Localization.h"
 #include "Manager.h"
 #include "Menu.h"
+#include "SurvivalWidgets.h"
 
 namespace WaterskinUtils {
     namespace {
@@ -878,43 +879,6 @@ namespace WaterskinUtils {
         return TryFillImpl();
     }
 
-    void TryDrink() {
-        if (!WaterNeedManager::GetSingleton()->IsSystemEnabled()) {
-            return;
-        }
-
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        if (!player || !EnsureWaterskinFormsReady()) {
-            return;
-        }
-
-        const auto drinkableBottleIndex = FindDrinkableBottleIndex(player);
-        if (!drinkableBottleIndex.has_value()) {
-            if (g_trackedBottleForms[3] && player->GetItemCount(g_trackedBottleForms[3]) > 0) {
-                TearsWidget::ShowNotification(Localization::Get("$TOK_WaterskinEmpty").c_str());
-            } else {
-                TearsWidget::ShowNotification(Localization::Get("$TOK_NoFilledWaterskin").c_str());
-            }
-            return;
-        }
-
-        if (IsAlreadyQuenched()) {
-            TearsWidget::ShowNotification(Localization::Get("$TOK_AlreadyQuenched").c_str());
-            return;
-        }
-
-        if (!ReplaceTrackedBottle(player, *drinkableBottleIndex, *drinkableBottleIndex + 1)) {
-            TearsWidget::ShowNotification(Localization::Get("$TOK_CouldNotDrink").c_str());
-            return;
-        }
-
-        WaterNeedManager::GetSingleton()->Drink(Settings::g_drinkAmount);
-        QueueInventoryMenuRefresh();
-        const auto currentStateText = GetCurrentStateNotificationText();
-        TearsWidget::ShowNotification(currentStateText.c_str());
-        TearsWidget::Refresh();
-    }
-
     bool IsNearWater() {
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!player) {
@@ -969,30 +933,6 @@ namespace WaterskinUtils {
 
         return found;
     }
-
-    bool IsRefillActivator(RE::TESObjectREFR* reference) {
-        return reference && IsRefillActivatorBase(reference->GetBaseObject());
-    }
-
-    bool HasEmptyWaterskin() {
-        if (!EnsureWaterskinFormsReady(false)) {
-            return false;
-        }
-
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        return player && FindRefillableBottleIndex(player).has_value();
-    }
-
-    bool HasFilledWaterskin() {
-        if (!EnsureWaterskinFormsReady(false)) {
-            return false;
-        }
-
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        return player && FindDrinkableBottleIndex(player).has_value();
-    }
-
-    void GiveStartingWaterskin() { RestoreStoredOrGiveDefaultBottle(); }
 
     void QueueStartingWaterskin() { g_pendingStartingBottleGrant = true; }
 
@@ -1165,5 +1105,6 @@ namespace WaterskinUtils {
         SyncFillPower();
         SyncDirtyWater();
         TearsWidget::Refresh();
+        SurvivalWidgets::Refresh();
     }
 }
