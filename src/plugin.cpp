@@ -192,6 +192,7 @@ namespace {
                         }
                         ReconcileSystemEnabledState();
                         TearsWidget::TickAutoHide();
+                        SurvivalWidgets::Notify();
                         SurvivalWidgets::TickAutoHide();
                     });
                 }
