@@ -461,6 +461,7 @@ void __stdcall UI::RenderUIKeybind() {
             Settings::g_hudVisible = hudVisible;
             Settings::SaveToINI();
             TearsWidget::Refresh();
+            SurvivalWidgets::Refresh();
         }
 
         int scale = Settings::g_widgetScale;

@@ -208,8 +208,7 @@ namespace {
 
     void ApplyWidget(int index, bool force) {
         auto& state = s_state[index];
-        const bool baseShow =
-            Settings::g_survivalWidgetEnabled[index] && SystemActive() && !TearsWidget::IsSuppressed();
+        const bool baseShow = Settings::g_survivalWidgetEnabled[index] && Settings::g_hudVisible && SystemActive() && !TearsWidget::IsSuppressed();
         const int stage = baseShow ? ComputeStage(index) : -1;
         const int prevStage = state.lastStage.load();
 
@@ -366,7 +365,7 @@ void SurvivalWidgets::TickAutoHide() {
             }
         }
 
-        const bool baseShow = SystemActive() && !TearsWidget::IsSuppressed();
+        const bool baseShow = Settings::g_hudVisible && SystemActive() && !TearsWidget::IsSuppressed();
         const int stage = baseShow ? ComputeStage(i) : -1;
 
         if (stage != state.lastStage.load()) {

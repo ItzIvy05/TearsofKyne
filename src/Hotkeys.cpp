@@ -2,6 +2,7 @@
 
 #include "Keyhandler.h"
 #include "Menu.h"
+#include "SurvivalWidgets.h"
 #include "Utils.h"
 
 namespace Hotkeys {
@@ -37,6 +38,7 @@ namespace Hotkeys {
                             Settings::g_hudVisible = !Settings::g_hudVisible;
                             Settings::SaveToINI();
                             TearsWidget::Refresh();
+                            SurvivalWidgets::Refresh();
                         });
                     }
                 });
