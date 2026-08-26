@@ -5,9 +5,7 @@
 #include "Utils.h"
 
 namespace {
-    constexpr std::array<const char*, 5> STAGE_SPELL_EDITOR_IDS = {"IvyThirstQuenchedSpell", "IvyThirstSatedSpell",
-                                                                   "IvyThirstThirstySpell", "IvyThirstParchedSpell",
-                                                                   "IvyThirstDehydratedSpell"};
+    constexpr std::array<const char*, 5> STAGE_SPELL_EDITOR_IDS = {"IvyThirstQuenchedSpell", "IvyThirstSatedSpell", "IvyThirstThirstySpell", "IvyThirstParchedSpell", "IvyThirstDehydratedSpell"};
 
     bool IsPlayerInJail() {
         auto* player = RE::PlayerCharacter::GetSingleton();
@@ -259,7 +257,7 @@ void WaterNeedManager::Tick() {
         
         if (!player->IsDead()) {
             TearsWidget::ShowNotification(Localization::Get("$TOK_DeathThirst").c_str());
-            player->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kHealth, -1000000.0f);
+            player->AsActorValueOwner()->ModActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage, RE::ActorValue::kHealth, -1000000.0f);
             logger::info("[Tears of Kyne] Player died of dehydration.");
         }
     }

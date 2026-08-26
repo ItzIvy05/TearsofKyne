@@ -818,7 +818,8 @@ namespace WaterskinUtils {
             return;
         }
 
-        if (player->IsInCombat()) {
+        static REL::Relocation<bool (*)(RE::PlayerCharacter*)> IsPlayerInCombat{RELOCATION_ID(40013, 41024)};
+        if (IsPlayerInCombat(player)) {
             TearsWidget::ShowNotification(Localization::Get("$TOK_CannotFillCombat").c_str());
             return;
         }

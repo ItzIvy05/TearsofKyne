@@ -10,13 +10,8 @@
     "rapidcsv",
     "clib-util",
     "clib-utils-qtr",
-    "directxtk"
+    "directxtk",
+    "skse-mcp"
   ],
-  "overrides": [
-    {
-      "name": "fmt",
-      "version": "10.2.1"
-    }
-  ],
-  "builtin-baseline": "74e6536215718009aae747d86d84b78376bf9e09"
+  "builtin-baseline": "ee12231b20c95013c6638d845d04c91559a1d1ff"
 }

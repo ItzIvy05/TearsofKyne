@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include "SKSEMenuFramework.h"
+#include <SKSEMCP/SKSEMenuFramework.hpp>
 
 namespace ImGui = ImGuiMCP;
 

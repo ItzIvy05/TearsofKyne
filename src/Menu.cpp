@@ -261,7 +261,8 @@ void TearsWidget::SetScale(int scalePercent) {
 
 void TearsWidget::ShowNotification(const char* message) {
     if (!message || !*message) return;
-    RE::DebugNotification(message);
+    static REL::Relocation<void (*)(const char*, const char*, bool)> DebugNotification{RELOCATION_ID(52050, 52933)};
+    DebugNotification(message, nullptr, true);
 }
 
 void TearsWidget::BeginBinding(const char* type) {
