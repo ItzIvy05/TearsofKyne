@@ -335,11 +335,9 @@ float WaterNeedManager::GetLevel() const {
     return _thirstLevel;
 }
 
-int WaterNeedManager::GetPercent() const { return static_cast<int>(GetLevel()); }
 
 int WaterNeedManager::GetStage() const { return StageFromLevel(GetLevel()); }
 
-const char* WaterNeedManager::GetStageName() const { return STAGE_NAMES[GetStage()]; }
 
 float WaterNeedManager::GetLastGameTime() const {
     std::scoped_lock lock(_mutex);

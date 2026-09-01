@@ -1,5 +1,7 @@
 #include "Utils.h"
 
+#include <cstring>
+
 #include <optional>
 #include <random>
 
@@ -411,19 +413,22 @@ namespace WaterskinUtils {
             return player;
         }
 
+
         RE::TESBoundObject* LookupBoundObjectByEditorID(const char* editorID) {
             if (!editorID || !*editorID) {
                 return nullptr;
             }
 
             auto* form = RE::TESForm::LookupByEditorID(editorID);
-            return form ? static_cast<RE::TESBoundObject*>(form) : nullptr;
+            return form ? form->As<RE::TESBoundObject>() : nullptr;
         }
 
         RE::TESBoundObject* LookupBoundObjectWithFallback(RE::TESDataHandler* dataHandler, RE::FormID formID, const char* editorID) {
             if (dataHandler) {
-                if (auto* form = dataHandler->LookupForm<RE::TESBoundObject>(formID, Settings::g_pluginName.c_str())) {
-                    return form;
+                if (auto* form = dataHandler->LookupForm(formID, Settings::g_pluginName.c_str())) {
+                    if (auto* object = form->As<RE::TESBoundObject>()) {
+                        return object;
+                    }
                 }
             }
 
@@ -780,6 +785,7 @@ namespace WaterskinUtils {
         }
     }
 
+
     void Initialize() {
         g_filledWaterskin = nullptr;
         g_emptyWaterskin = nullptr;
@@ -975,19 +981,21 @@ namespace WaterskinUtils {
         SyncFillPower();
         SyncDirtyWater();
 
+        const bool systemEnabled = WaterNeedManager::GetSingleton()->IsSystemEnabled();
+
+        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyEnableMod")) {
+            global->value = systemEnabled ? 1.0f : 0.0f;
+        }
+
+        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyLeveledListEnable")) {
+            global->value = systemEnabled ? 0.0f : 100.0f;
+        }
+
         if (!g_pendingStartingBottleGrant) {
             return;
         }
 
         RestoreStoredOrGiveDefaultBottle();
-
-        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyEnableMod")) {
-            global->value = WaterNeedManager::GetSingleton()->IsSystemEnabled() ? 1.0f : 0.0f;
-        }
-
-        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyLeveledListEnable")) {
-            global->value = WaterNeedManager::GetSingleton()->IsSystemEnabled() ? 0.0f : 100.0f;
-        }
     }
 
     void OnObjectEquipped(RE::FormID baseObjectFormID, RE::TESObjectREFR* actorRef) {

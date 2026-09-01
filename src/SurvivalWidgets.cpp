@@ -1,14 +1,13 @@
-#include "SurvivalWidgets.h"
-
 #include <algorithm>
 #include <array>
 
+#include "SurvivalWidgets.h"
 #include "Manager.h"
 #include "Menu.h"
 #include "Settings.h"
 
 
-// Readapted code from SMI and Bottle Widgets.
+// Re adapted code from SMI and Bottle Widgets.
 // This was a fuck ass to make so i hope u like this shit.
 
 namespace {

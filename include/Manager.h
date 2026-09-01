@@ -24,7 +24,6 @@ public:
     // Hard = 9.0/ hour
 
     static constexpr float STAGE_BOUNDS[5] = {0.0f, 20.0f, 40.0f, 60.0f, 80.0f};
-    static constexpr const char* STAGE_NAMES[5] = {"Quenched", "Sated", "Thirsty", "Parched", "Dehydrated"};
 
     void InitializeFromSettings();
     void OnNewGame();
@@ -42,9 +41,7 @@ public:
     void ClearStoredBottleCounts();
 
     [[nodiscard]] float GetLevel() const;
-    [[nodiscard]] int GetPercent() const;
     [[nodiscard]] int GetStage() const;
-    [[nodiscard]] const char* GetStageName() const;
 
     [[nodiscard]] float GetLastGameTime() const;
     void SetLastGameTime(float value);

@@ -387,30 +387,30 @@ namespace Settings {
         if (path.empty()) return;
 
         std::vector<std::pair<std::string, std::string>> values = {
-            {"FillKey", GetKeyName(g_fillKey)},
-            {"ToggleWidgetKey", g_toggleWidgetKey == 0 ? "0" : GetKeyName(g_toggleWidgetKey)},
-            {"HudX", std::to_string(g_hudX)},
-            {"HudY", std::to_string(g_hudY)},
-            {"WidgetScale", std::to_string(g_widgetScale)},
-            {"bHudVisible", g_hudVisible ? "1" : "0"},
-            {"bWidgetAutoHide", g_widgetAutoHide ? "1" : "0"},
-            {"WidgetHoldSeconds", std::to_string(g_widgetHoldSeconds)},
+            {"bEnableTears", g_enableTears ? "1" : "0"},
+            {"bEnableTearsWithSM", g_enableTearsWithSM ? "1" : "0"},
+            {"Difficulty", std::to_string(static_cast<int>(g_difficulty))},
             {"bPauseNeedsInJail", g_pauseNeedsInJail ? "1" : "0"},
             {"bDisableForVampire", g_disableForVampire ? "1" : "0"},
             {"bDeathByDehydration", g_deathByDehydration ? "1" : "0"},
-            {"bEnableTears", g_enableTears ? "1" : "0"},
-            {"bEnableTearsWithSM", g_enableTearsWithSM ? "1" : "0"},
-            {"bUseFillPower", g_useFillPower ? "1" : "0"},
+            {"bReuseBottles", g_reuseBottles ? "1" : "0"},
+            {"fBottleQuench", std::format("{}", g_bottleQuench)},
             {"bEnableDirtyWater", g_enableDirtyWater ? "1" : "0"},
             {"fRiskLow", std::format("{}", g_riskLow)},
             {"fRiskFoul", std::format("{}", g_riskFoul)},
-            {"fBottleQuench", std::format("{}", g_bottleQuench)},
-            {"bReuseBottles", g_reuseBottles ? "1" : "0"},
             {"bEnablePerkGate", g_enablePerkGate ? "1" : "0"},
             {"sPerkForms", g_perkForms},
             {"fPerkRateReduction", std::format("{}", g_perkRateReduction)},
+            {"bHudVisible", g_hudVisible ? "1" : "0"},
+            {"HudX", std::to_string(g_hudX)},
+            {"HudY", std::to_string(g_hudY)},
+            {"WidgetScale", std::to_string(g_widgetScale)},
+            {"bWidgetAutoHide", g_widgetAutoHide ? "1" : "0"},
+            {"WidgetHoldSeconds", std::to_string(g_widgetHoldSeconds)},
+            {"FillKey", GetKeyName(g_fillKey)},
+            {"ToggleWidgetKey", g_toggleWidgetKey == 0 ? "0" : GetKeyName(g_toggleWidgetKey)},
+            {"bUseFillPower", g_useFillPower ? "1" : "0"},
             {"bEnableLogging", g_enableLogging ? "1" : "0"},
-            {"Difficulty", std::to_string(static_cast<int>(g_difficulty))},
         };
 
         {
@@ -432,7 +432,7 @@ namespace Settings {
                 hadFile = true;
                 std::string line;
                 while (std::getline(in, line)) {
-                    if (!line.empty() && line.back() == '\r') line.pop_back();
+                    if (!line.empty() && line.back() == '') line.pop_back();
                     lines.push_back(line);
                 }
             }
@@ -441,7 +441,7 @@ namespace Settings {
         std::vector<bool> written(values.size(), false);
 
         for (auto& line : lines) {
-            const size_t firstNonSpace = line.find_first_not_of(" \t");
+            const size_t firstNonSpace = line.find_first_not_of(" 	");
             if (firstNonSpace == std::string::npos) continue;
             const char c = line[firstNonSpace];
             if (c == ';' || c == '#' || c == '[') continue;
@@ -450,7 +450,7 @@ namespace Settings {
             if (eq == std::string::npos) continue;
 
             std::string key = line.substr(firstNonSpace, eq - firstNonSpace);
-            const size_t keyEnd = key.find_last_not_of(" \t");
+            const size_t keyEnd = key.find_last_not_of(" 	");
             if (keyEnd != std::string::npos) key = key.substr(0, keyEnd + 1);
 
             for (size_t i = 0; i < values.size(); ++i) {
@@ -462,18 +462,6 @@ namespace Settings {
             }
         }
 
-        const std::string logComment = "; bEnableLogging=1 writes a debug log; 0 (default)";
-        for (size_t i = 0; i < lines.size(); ++i) {
-            const size_t firstNonSpace = lines[i].find_first_not_of(" \t");
-            if (firstNonSpace == std::string::npos) continue;
-            if (lines[i].compare(firstNonSpace, 14, "bEnableLogging") == 0) {
-                if (i == 0 || lines[i - 1] != logComment) {
-                    lines.insert(lines.begin() + i, logComment);
-                }
-                break;
-            }
-        }
-
         std::ofstream out(path, std::ios::trunc);
         if (!out.is_open()) {
             logger::error("[Settings] Could not write INI to '{}'.", path);
@@ -481,28 +469,16 @@ namespace Settings {
         }
 
         if (!hadFile) {
-            out << "[Tears of Kyne]\n";
+            out << "[Tears of Kyne]" << "\n";
         }
 
         for (const auto& line : lines) {
             out << line << "\n";
         }
 
-        bool anyMissing = false;
         for (size_t i = 0; i < values.size(); ++i) {
             if (!written[i]) {
-                anyMissing = true;
-                break;
-            }
-        }
-        if (anyMissing) {
-            for (size_t i = 0; i < values.size(); ++i) {
-                if (!written[i]) {
-                    if (values[i].first == "bEnableLogging") {
-                        out << logComment << "\n";
-                    }
-                    out << values[i].first << "=" << values[i].second << "\n";
-                }
+                out << values[i].first << "=" << values[i].second << "\n";
             }
         }
 
