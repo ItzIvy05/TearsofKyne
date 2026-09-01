@@ -209,20 +209,19 @@ namespace Settings {
     bool TryParseKeyName(std::string value, std::uint32_t& out) {
         Trim(value);
         if (value.empty()) return false;
-        if (TryParseUInt(value, out)) return true;
-        value = UpperCopy(value);
-        if (value == "NUMPAD+") value = "NUM+";
-        if (value == "NUMPAD-") value = "NUM-";
-        if (value == "NUMPAD/") value = "NUM/";
-        if (value == "NUMPAD*") value = "NUM*";
-        if (value == "NUMPADENTER") value = "NUMENTER";
+        std::string name = UpperCopy(value);
+        if (name == "NUMPAD+") name = "NUM+";
+        if (name == "NUMPAD-") name = "NUM-";
+        if (name == "NUMPAD/") name = "NUM/";
+        if (name == "NUMPAD*") name = "NUM*";
+        if (name == "NUMPADENTER") name = "NUMENTER";
         for (const auto& entry : KEY_NAMES) {
-            if (value == entry.name) {
+            if (name == entry.name) {
                 out = entry.code;
                 return true;
             }
         }
-        return false;
+        return TryParseUInt(value, out);
     }
 
     void LoadFromINI() {
