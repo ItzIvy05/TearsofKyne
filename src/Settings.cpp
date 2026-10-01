@@ -116,6 +116,7 @@ namespace Settings {
             g_enablePerkGate = false;
             g_perkForms = "";
             g_perkRateReduction = DEFAULT_PERK_RATE_REDUCTION;
+            g_useKynesEmbraceGlobal = false;
             g_enableLogging = false;
         }
     }
@@ -197,7 +198,6 @@ namespace Settings {
         }
         return false;
     }
-
     std::string GetKeyName(std::uint32_t scanCode) {
         if (scanCode == 0) return "Unbound";
         for (const auto& entry : KEY_NAMES) {
@@ -328,6 +328,8 @@ namespace Settings {
                     g_perkRateReduction = std::clamp(std::stof(value), 15.0f, 75.0f);
                 } catch (...) {
                 }
+            } else if (key == "bUseKynesEmbraceGlobal") {
+                g_useKynesEmbraceGlobal = ParseBool(value, false);
             } else if (key == "bEnableLogging") {
                 g_enableLogging = ParseBool(value, false);
             } else if (key.rfind("SurvivalWidget", 0) == 0) {
@@ -401,6 +403,7 @@ namespace Settings {
             {"bEnablePerkGate", g_enablePerkGate ? "1" : "0"},
             {"sPerkForms", g_perkForms},
             {"fPerkRateReduction", std::format("{}", g_perkRateReduction)},
+            {"bUseKynesEmbraceGlobal", g_useKynesEmbraceGlobal ? "1" : "0"},
             {"bHudVisible", g_hudVisible ? "1" : "0"},
             {"HudX", std::to_string(g_hudX)},
             {"HudY", std::to_string(g_hudY)},

@@ -383,13 +383,22 @@ void __stdcall UI::RenderGameplay() {
             TearsWidget::Refresh();
         }
 
-        float reduction = Settings::g_perkRateReduction;
-        RowLabel("Rate Reduction");
-        if (ImGui::SliderFloat("##perkrate", &reduction, 15.0f, 75.0f, "%.0f%%")) {
-            Settings::g_perkRateReduction = std::clamp(reduction, 15.0f, 75.0f);
-        }
-        if (ImGui::IsItemDeactivatedAfterEdit()) {
+        bool perkGlobal = Settings::g_useKynesEmbraceGlobal;
+        RowLabel("Use Kyne's Embrace Global");
+        if (ImGui::Checkbox("##perkglobal", &perkGlobal)) {
+            Settings::g_useKynesEmbraceGlobal = perkGlobal;
             Settings::SaveToINI();
+        }
+
+        if (!Settings::g_useKynesEmbraceGlobal) {
+            float reduction = Settings::g_perkRateReduction;
+            RowLabel("Rate Reduction");
+            if (ImGui::SliderFloat("##perkrate", &reduction, 15.0f, 75.0f, "%.0f%%")) {
+                Settings::g_perkRateReduction = std::clamp(reduction, 15.0f, 75.0f);
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) {
+                Settings::SaveToINI();
+            }
         }
         ImGui::EndTable();
     }

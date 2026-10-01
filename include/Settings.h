@@ -70,6 +70,7 @@ namespace Settings {
     inline bool g_enablePerkGate = false;
     inline std::string g_perkForms = "";
     inline float g_perkRateReduction = DEFAULT_PERK_RATE_REDUCTION;
+    inline bool g_useKynesEmbraceGlobal = false;
     inline std::atomic<bool> g_perkFormsDirty = false;
 
     inline bool g_enableLogging = false;
