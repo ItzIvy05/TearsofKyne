@@ -61,6 +61,14 @@ namespace {
         return false;
     }
 
+    float GetKynesEmbraceBonus() {
+        static RE::TESGlobal* kynesEmbraceGlobal = nullptr;
+        if (!kynesEmbraceGlobal) {
+            kynesEmbraceGlobal = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyKynesEmbraceGlobal");
+        }
+        return kynesEmbraceGlobal ? kynesEmbraceGlobal->value : 0.0f;
+    }
+
     std::array<RE::SpellItem*, 5> g_stageSpells{};
     std::array<bool, 5> g_loggedStageSpellLookupFailure{};
 
@@ -232,7 +240,7 @@ void WaterNeedManager::Tick() {
             if (!jailPaused && !vampirePaused) {
                 float rate = Settings::g_thirstRate;
                 if (Settings::g_enablePerkGate && Settings::PlayerHasGatePerk()) {
-                    const float reduction = std::clamp(Settings::g_perkRateReduction, 15.0f, 75.0f);
+                    const float reduction = std::clamp(std::clamp(Settings::g_perkRateReduction, 15.0f, 75.0f) + GetKynesEmbraceBonus(), 0.0f, 100.0f);
                     rate *= (1.0f - reduction / 100.0f);
                 }
                 _thirstLevel = std::clamp(_thirstLevel + (hoursPassed * rate), 0.0f, 100.0f);
