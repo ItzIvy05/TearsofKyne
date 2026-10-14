@@ -2,5 +2,4 @@
 
 namespace Hotkeys {
     void Initialize();
-    void RefreshBindings();
 }

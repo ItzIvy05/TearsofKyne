@@ -1,60 +1,47 @@
 #include "Hotkeys.h"
 
-#include "Keyhandler.h"
 #include "Menu.h"
 #include "SurvivalWidgets.h"
 #include "Utils.h"
 
 namespace Hotkeys {
     namespace {
-        KeyHandlerEvent g_fillHandle = INVALID_KEY_HANDLER_EVENT;
-        KeyHandlerEvent g_toggleWidgetHandle = INVALID_KEY_HANDLER_EVENT;
-
-        void UnregisterAll() {
-            auto* keyHandler = KeyHandler::GetSingleton();
-            keyHandler->Unregister(g_fillHandle);
-            keyHandler->Unregister(g_toggleWidgetHandle);
-            g_fillHandle = INVALID_KEY_HANDLER_EVENT;
-            g_toggleWidgetHandle = INVALID_KEY_HANDLER_EVENT;
+        void ToggleWidget() {
+            Settings::g_hudVisible = !Settings::g_hudVisible;
+            Settings::SaveToINI();
+            TearsWidget::Refresh();
+            SurvivalWidgets::Refresh();
         }
 
-        void RegisterAll() {
-            auto* keyHandler = KeyHandler::GetSingleton();
+        class InputSink final : public RE::BSTEventSink<RE::InputEvent*>, public REX::Singleton<InputSink> {
+        public:
+            RE::BSEventNotifyControl ProcessEvent(RE::InputEvent* const* a_events, RE::BSTEventSource<RE::InputEvent*>*) override {
+                auto* ui = RE::UI::GetSingleton();
+                if (!a_events || (ui && ui->GameIsPaused())) {
+                    return RE::BSEventNotifyControl::kContinue;
+                }
 
-            if (!Settings::g_useFillPower) {
-                g_fillHandle = keyHandler->Register(Settings::g_fillKey, KeyEventType::KEY_DOWN, [] {
-                    auto* taskInterface = SKSE::GetTaskInterface();
-                    if (taskInterface) {
-                        taskInterface->AddTask([] { WaterskinUtils::TryFill(); });
+                for (auto* event = *a_events; event; event = event->next) {
+                    const auto* button = event->AsButtonEvent();
+                    if (!button || button->GetDevice() != RE::INPUT_DEVICE::kKeyboard || !button->IsDown()) {
+                        continue;
                     }
-                });
-            }
 
-            if (Settings::g_toggleWidgetKey != 0) {
-                g_toggleWidgetHandle = keyHandler->Register(Settings::g_toggleWidgetKey, KeyEventType::KEY_DOWN, [] {
-                    auto* taskInterface = SKSE::GetTaskInterface();
-                    if (taskInterface) {
-                        taskInterface->AddTask([] {
-                            Settings::g_hudVisible = !Settings::g_hudVisible;
-                            Settings::SaveToINI();
-                            TearsWidget::Refresh();
-                            SurvivalWidgets::Refresh();
-                        });
+                    const auto key = button->GetIDCode();
+                    if (key == Settings::g_fillKey && Settings::g_fillMethod == Settings::FillMethod::Hotkey) {
+                        SKSE::GetTaskInterface()->AddTask([] { WaterskinUtils::TryFill(); });
                     }
-                });
+                    if (key == Settings::g_toggleWidgetKey && Settings::g_toggleWidgetKey != 0) {
+                        SKSE::GetTaskInterface()->AddTask(ToggleWidget);
+                    }
+                }
+                return RE::BSEventNotifyControl::kContinue;
             }
-        }
+        };
     }
 
     void Initialize() {
-        KeyHandler::RegisterSink();
-        RefreshBindings();
-    }
-
-    void RefreshBindings() {
-        UnregisterAll();
-        RegisterAll();
-        logger::info("[Hotkeys] Registered. FillKey={} ToggleWidgetKey={}", Settings::GetKeyName(Settings::g_fillKey),
-                     Settings::GetKeyName(Settings::g_toggleWidgetKey));
+        RE::BSInputDeviceManager::GetSingleton()->AddEventSink(InputSink::GetSingleton());
+        logger::info("[Hotkeys] Registered input sink.");
     }
 }

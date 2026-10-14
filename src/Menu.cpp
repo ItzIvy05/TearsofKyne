@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 
-#include "Hotkeys.h"
 #include "Manager.h"
 #include "Settings.h"
 #include "Utils.h"
@@ -44,8 +43,7 @@ namespace {
 
         TearsWidgetMenu() {
             depthPriority = 0;
-            menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen, RE::UI_MENU_FLAGS::kAllowSaving,
-                          RE::UI_MENU_FLAGS::kRequiresUpdate, RE::UI_MENU_FLAGS::kAdvancesUnderPauseMenu);
+            menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen, RE::UI_MENU_FLAGS::kAllowSaving, RE::UI_MENU_FLAGS::kRequiresUpdate, RE::UI_MENU_FLAGS::kAdvancesUnderPauseMenu);
             if (RE::BSScaleformManager::GetSingleton()->LoadMovie(this, uiMovie, FILE_NAME)) {
                 logger::info("[TearsWidget] Widget movie loaded.");
             } else {
@@ -65,7 +63,7 @@ namespace {
             s_showQueued.store(false);
             return;
         }
-        if (!ui->IsMenuOpen("HUD Menu")) return;
+        if (!ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)) return;
         if (s_showQueued.exchange(true)) return;
         queue->AddMessage(TearsWidgetMenu::MENU_NAME, RE::UI_MESSAGE_TYPE::kShow, nullptr);
         logger::info("[TearsWidget] Widget menu show queued.");
@@ -119,7 +117,7 @@ void TearsWidget::Init() {
 RE::GPtr<RE::GFxMovieView> TearsWidget::GetWidgetMovie() {
     auto* ui = RE::UI::GetSingleton();
     if (!ui) return nullptr;
-    if (ui->IsMenuOpen("Loading Menu")) return nullptr;
+    if (ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) return nullptr;
     auto menu = ui->GetMenu(TearsWidgetMenu::MENU_NAME);
     if (!menu || !menu->uiMovie) return nullptr;
     return menu->uiMovie;
@@ -200,8 +198,7 @@ void TearsWidget::Refresh() {
     const auto* mgr = WaterNeedManager::GetSingleton();
     const int stage = mgr->GetStage();
     const int frame = std::clamp(stage + 1, 1, 5);
-    const bool baseShow =
-        Settings::g_hudVisible && !s_menuSuppressed.load() && mgr->IsSystemEnabled() && !mgr->IsPausedForVampire();
+    const bool baseShow = Settings::g_hudVisible && !s_menuSuppressed.load() && mgr->IsSystemEnabled() && !mgr->IsPausedForVampire();
 
     if (Settings::g_widgetAutoHide && s_lastStage != -1 && stage != s_lastStage) {
         if (stage >= s_finalStage) {
@@ -240,8 +237,7 @@ void TearsWidget::TickAutoHide() {
     }
 
     const auto* mgr = WaterNeedManager::GetSingleton();
-    const bool baseShow =
-        Settings::g_hudVisible && !s_menuSuppressed.load() && mgr->IsSystemEnabled() && !mgr->IsPausedForVampire();
+    const bool baseShow = Settings::g_hudVisible && !s_menuSuppressed.load() && mgr->IsSystemEnabled() && !mgr->IsPausedForVampire();
     ApplyAutoHideVisibility(baseShow, mgr->GetStage());
 }
 
@@ -261,8 +257,7 @@ void TearsWidget::SetScale(int scalePercent) {
 
 void TearsWidget::ShowNotification(const char* message) {
     if (!message || !*message) return;
-    static REL::Relocation<void (*)(const char*, const char*, bool)> DebugNotification{RELOCATION_ID(52050, 52933)};
-    DebugNotification(message, nullptr, true);
+    RE::SendHUDMessage::ShowHUDMessage(message);
 }
 
 void TearsWidget::BeginBinding(const char* type) {
@@ -278,7 +273,7 @@ const std::string& TearsWidget::GetPendingBinding() { return s_pendingBinding; }
 
 bool TearsWidget::CaptureBindingKey(std::uint32_t scanCode) {
     if (s_pendingBinding.empty()) return false;
-    if (scanCode == 0x01) {
+    if (scanCode == RE::BSKeyboardDevice::Key::kEscape) {
         CancelBinding();
         return true;
     }
@@ -294,7 +289,6 @@ bool TearsWidget::CaptureBindingKey(std::uint32_t scanCode) {
 
     s_pendingBinding.clear();
     Settings::SaveToINI();
-    Hotkeys::RefreshBindings();
     return true;
 }
 
@@ -304,8 +298,7 @@ void TearsWidget::RefreshSuppression() {
     if (!s_inGameSession.load() && !s_sessionPending.load()) {
         auto* player = RE::PlayerCharacter::GetSingleton();
         auto* ui = RE::UI::GetSingleton();
-        if (player && ui && player->Is3DLoaded() && player->GetParentCell() && !ui->IsMenuOpen("Main Menu") &&
-            !ui->IsMenuOpen("Loading Menu") && !ui->IsMenuOpen("RaceSex Menu")) {
+        if (player && ui && player->Is3DLoaded() && player->GetParentCell() && !ui->IsMenuOpen(RE::MainMenu::MENU_NAME) && !ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME) && !ui->IsMenuOpen(RE::RaceSexMenu::MENU_NAME)) {
             s_sessionPending.store(true);
             s_requireRaceMenuExit.store(false);
             s_raceMenuSeen.store(false);
@@ -315,11 +308,10 @@ void TearsWidget::RefreshSuppression() {
     if (!s_inGameSession.load() && s_sessionPending.load()) {
         auto* player = RE::PlayerCharacter::GetSingleton();
         auto* ui = RE::UI::GetSingleton();
-        if (player && ui && player->Is3DLoaded() && player->GetParentCell() && !ui->IsMenuOpen("Main Menu") &&
-            !ui->IsMenuOpen("Loading Menu")) {
+        if (player && ui && player->Is3DLoaded() && player->GetParentCell() && !ui->IsMenuOpen(RE::MainMenu::MENU_NAME) && !ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) {
             bool ok = true;
             if (s_requireRaceMenuExit.load()) {
-                if (ui->IsMenuOpen("RaceSex Menu")) {
+                if (ui->IsMenuOpen(RE::RaceSexMenu::MENU_NAME)) {
                     s_raceMenuSeen.store(true);
                     ok = false;
                 } else if (!s_raceMenuSeen.load())
@@ -353,23 +345,23 @@ void TearsWidget::BeginGameSessionTransition(bool requireRaceMenuExit) {
 
 void TearsWidget::NotifyMenuEvent(const char* menuName, bool opening) {
     const std::string_view name = menuName ? menuName : "";
-    if (name == "HUD Menu") {
+    if (name == RE::HUDMenu::MENU_NAME) {
         if (opening) {
             EnsureMenuShown();
         } else {
             HideMenu();
         }
     }
-    if (opening && name == "Main Menu") {
+    if (opening && name == RE::MainMenu::MENU_NAME) {
         EndGameSession();
         return;
     }
-    if (opening && name == "Loading Menu") {
+    if (opening && name == RE::LoadingMenu::MENU_NAME) {
         ResetAutoHideState();
         RefreshSuppression();
         return;
     }
-    if (s_sessionPending.load() && s_requireRaceMenuExit.load() && name == "RaceSex Menu" && opening) {
+    if (s_sessionPending.load() && s_requireRaceMenuExit.load() && name == RE::RaceSexMenu::MENU_NAME && opening) {
         s_raceMenuSeen.store(true);
     }
     RefreshSuppression();

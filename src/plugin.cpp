@@ -1,5 +1,7 @@
 #include <optional>
 
+#include <CLibUtilsQTR/Ticker.hpp>
+
 #include "Events.h"
 #include "Hotkeys.h"
 #include "Localization.h"
@@ -10,29 +12,22 @@
 #include "SurvivalWidgets.h"
 #include "UI.h"
 #include "Utils.h"
-#include "logger.h"
 
 namespace {
-    std::atomic_bool g_updateThreadStarted = false;
     std::atomic_bool g_runtimeBootstrapHandled = false;
     std::atomic_bool g_pendingNewGameSurvivalSync = false;
 
-    RE::TESGlobal* LookupSurvivalModeGlobal(const char* editorID) {
-        return RE::TESForm::LookupByEditorID<RE::TESGlobal>(editorID);
-    }
-
     std::optional<bool> GetSurvivalModeToggleState() {
-        auto* survivalToggle = LookupSurvivalModeGlobal("Survival_ModeToggle");
+        auto* survivalToggle = RE::TESForm::LookupByEditorID<RE::TESGlobal>("Survival_ModeToggle");
         if (!survivalToggle) {
-            logger::info(
-                "[Tears of Kyne] Survival_ModeToggle not found. New game sync will keep Tears of Kyne enabled.");
+            logger::info("[Tears of Kyne] Survival_ModeToggle not found. New game sync will keep Tears of Kyne enabled.");
             return std::nullopt;
         }
 
         return survivalToggle->value > 0.0f;
     }
 
-    bool PlayerReadyForSurvivalSync() {
+    bool IsPlayerInWorld() {
         auto* player = RE::PlayerCharacter::GetSingleton();
         auto* ui = RE::UI::GetSingleton();
         if (!player || !ui) {
@@ -43,7 +38,7 @@ namespace {
             return false;
         }
 
-        if (ui->IsMenuOpen("Main Menu") || ui->IsMenuOpen("Loading Menu") || ui->IsMenuOpen("RaceSex Menu")) {
+        if (ui->IsMenuOpen(RE::MainMenu::MENU_NAME) || ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME) || ui->IsMenuOpen(RE::RaceSexMenu::MENU_NAME)) {
             return false;
         }
 
@@ -59,7 +54,7 @@ namespace {
             return;
         }
 
-        if (!PlayerReadyForSurvivalSync()) {
+        if (!IsPlayerInWorld()) {
             return;
         }
 
@@ -80,8 +75,7 @@ namespace {
             WaterskinUtils::CancelPendingStartingWaterskin();
         }
 
-        logger::info("[Tears of Kyne] New game startup sync applied. Water needs {}.",
-                     enableWaterNeeds ? "enabled" : "disabled");
+        logger::info("[Tears of Kyne] New game startup sync applied. Water needs {}.", enableWaterNeeds ? "enabled" : "disabled");
     }
 
     void ReconcileSystemEnabledState() {
@@ -119,13 +113,7 @@ namespace {
         manager->ClearStoredBottleCounts();
         WaterskinUtils::QueueStartingWaterskin();
 
-        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyEnableMod")) {
-            global->value = 1.0f;
-        }
-
-        if (auto* global = RE::TESForm::LookupByEditorID<RE::TESGlobal>("IvyLeveledListEnable")) {
-            global->value = 0.0f;
-        }
+        WaterskinUtils::SyncEnableGlobals(true);
 
         logger::info("[Tears of Kyne] No existing save data found. Queued first-time startup bottle.");
     }
@@ -136,21 +124,7 @@ namespace {
             return;
         }
 
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        auto* ui = RE::UI::GetSingleton();
-        if (!player || !ui) {
-            return;
-        }
-
-        if (!player->Is3DLoaded() || !player->GetParentCell()) {
-            return;
-        }
-
-        if (ui->IsMenuOpen("Main Menu") || ui->IsMenuOpen("Loading Menu") || ui->IsMenuOpen("RaceSex Menu")) {
-            return;
-        }
-
-        if (g_runtimeBootstrapHandled.load()) {
+        if (!IsPlayerInWorld() || g_runtimeBootstrapHandled.load()) {
             return;
         }
 
@@ -164,42 +138,37 @@ namespace {
         logger::info("[Tears of Kyne] In-world startup fallback applied.");
     }
 
-    void StartUpdateThread() {
-        if (g_updateThreadStarted.exchange(true)) {
-            return;
-        }
+    void OnUpdateTick() {
+        static int elapsed = 0;
+        elapsed += 1;
+        const bool slowTick = (elapsed >= Settings::UPDATE_INTERVAL_SEC);
+        if (slowTick) elapsed = 0;
 
-        std::thread([] {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            int elapsed = 0;
-            while (true) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-                elapsed += 1;
-                const bool slowTick = (elapsed >= Settings::g_updateIntervalSec);
-                if (slowTick) elapsed = 0;
-
-                auto* taskInterface = SKSE::GetTaskInterface();
-                if (taskInterface) {
-                    taskInterface->AddTask([slowTick] {
-                        if (Settings::g_perkFormsDirty.exchange(false)) {
-                            Settings::ParsePerkForms();
-                        }
-                        if (slowTick) {
-                            BootstrapInWorldStartupIfNeeded();
-                            TearsWidget::RefreshSuppression();
-                            ApplyPendingNewGameSurvivalSyncIfReady();
-                            WaterNeedManager::GetSingleton()->Tick();
-                        }
-                        ReconcileSystemEnabledState();
-                        TearsWidget::TickAutoHide();
-                        SurvivalWidgets::Notify();
-                        SurvivalWidgets::TickAutoHide();
-                    });
+        auto* taskInterface = SKSE::GetTaskInterface();
+        if (taskInterface) {
+            taskInterface->AddTask([slowTick] {
+                if (Settings::g_perkFormsDirty.exchange(false)) {
+                    Settings::ParsePerkForms();
                 }
-            }
-        }).detach();
+                if (slowTick) {
+                    BootstrapInWorldStartupIfNeeded();
+                    TearsWidget::RefreshSuppression();
+                    ApplyPendingNewGameSurvivalSyncIfReady();
+                    WaterNeedManager::GetSingleton()->Tick();
+                }
+                ReconcileSystemEnabledState();
+                TearsWidget::TickAutoHide();
+                SurvivalWidgets::Notify();
+                SurvivalWidgets::TickAutoHide();
+            });
+        }
+    }
 
-        logger::info("[Tears of Kyne] Update thread started ({}s).", Settings::g_updateIntervalSec);
+    Ticker g_updateTicker{OnUpdateTick, std::chrono::seconds(1)};
+
+    void StartUpdateThread() {
+        g_updateTicker.Start();
+        logger::info("[Tears of Kyne] Update thread started ({}s).", Settings::UPDATE_INTERVAL_SEC);
     }
 
     void OnMessage(SKSE::MessagingInterface::Message* message) {
@@ -221,9 +190,7 @@ namespace {
                 UI::Register();
                 StartUpdateThread();
 
-                logger::info("[Tears of Kyne] Ready. FillKey={} ToggleWidgetKey={} HudX={} HudY={}",
-                             Settings::GetKeyName(Settings::g_fillKey),
-                             Settings::GetKeyName(Settings::g_toggleWidgetKey), Settings::g_hudX, Settings::g_hudY);
+                logger::info("[Tears of Kyne] Ready. FillKey={} ToggleWidgetKey={} HudX={} HudY={}", Settings::GetKeyName(Settings::g_fillKey), Settings::GetKeyName(Settings::g_toggleWidgetKey), Settings::g_hudX, Settings::g_hudY);
                 break;
             }
             case SKSE::MessagingInterface::kNewGame:
@@ -253,12 +220,8 @@ namespace {
 }
 
 SKSEPluginLoad(const SKSE::LoadInterface* skse) {
-    SetupLog();
-    REL::Module::reset();
-
-    logger::info("[Tears of Kyne] Plugin loaded.");
-
     SKSE::Init(skse);
+    logger::info("[Tears of Kyne] Plugin loaded.");
     SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
 
     auto* serialization = SKSE::GetSerializationInterface();

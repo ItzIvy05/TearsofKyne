@@ -20,15 +20,9 @@ namespace {
     };
 
     constexpr std::array<NeedDesc, Settings::SURVIVAL_WIDGET_COUNT> DESCS = {{
-        {"Cold", "TearsColdWidgetMenu", "exported/widgets/TearsCold", "Survival_ColdNeedValue",
-         {"Survival_ColdStage1Value", "Survival_ColdStage2Value", "Survival_ColdStage3Value",
-          "Survival_ColdStage4Value", "Survival_ColdStage5Value"}},
-        {"Hunger", "TearsHungerWidgetMenu", "exported/widgets/TearsHunger", "Survival_HungerNeedValue",
-         {"Survival_HungerStage1Value", "Survival_HungerStage2Value", "Survival_HungerStage3Value",
-          "Survival_HungerStage4Value", "Survival_HungerStage5Value"}},
-        {"Exhaustion", "TearsExhaustionWidgetMenu", "exported/widgets/TearsExhaustion", "Survival_ExhaustionNeedValue",
-         {"Survival_ExhaustionStage1Value", "Survival_ExhaustionStage2Value", "Survival_ExhaustionStage3Value",
-          "Survival_ExhaustionStage4Value", "Survival_ExhaustionStage5Value"}},
+        {"Cold", "TearsColdWidgetMenu", "exported/widgets/TearsCold", "Survival_ColdNeedValue", {"Survival_ColdStage1Value", "Survival_ColdStage2Value", "Survival_ColdStage3Value", "Survival_ColdStage4Value", "Survival_ColdStage5Value"}},
+        {"Hunger", "TearsHungerWidgetMenu", "exported/widgets/TearsHunger", "Survival_HungerNeedValue", {"Survival_HungerStage1Value", "Survival_HungerStage2Value", "Survival_HungerStage3Value", "Survival_HungerStage4Value", "Survival_HungerStage5Value"}},
+        {"Exhaustion", "TearsExhaustionWidgetMenu", "exported/widgets/TearsExhaustion", "Survival_ExhaustionNeedValue", {"Survival_ExhaustionStage1Value", "Survival_ExhaustionStage2Value", "Survival_ExhaustionStage3Value", "Survival_ExhaustionStage4Value", "Survival_ExhaustionStage5Value"}},
     }};
 
     constexpr const char* VAR_ROOT_VISIBLE = "_root._visible";
@@ -83,8 +77,7 @@ namespace {
     public:
         NeedWidgetMenu() {
             depthPriority = 0;
-            menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen, RE::UI_MENU_FLAGS::kAllowSaving,
-                          RE::UI_MENU_FLAGS::kRequiresUpdate, RE::UI_MENU_FLAGS::kAdvancesUnderPauseMenu);
+            menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen, RE::UI_MENU_FLAGS::kAllowSaving, RE::UI_MENU_FLAGS::kRequiresUpdate, RE::UI_MENU_FLAGS::kAdvancesUnderPauseMenu);
             if (RE::BSScaleformManager::GetSingleton()->LoadMovie(this, uiMovie, DESCS[N].fileName)) {
                 logger::info("[SurvivalWidgets] {} movie loaded.", DESCS[N].label);
             } else {
@@ -104,7 +97,7 @@ namespace {
     RE::GPtr<RE::GFxMovieView> GetMovie(int index) {
         auto* ui = RE::UI::GetSingleton();
         if (!ui) return nullptr;
-        if (ui->IsMenuOpen("Loading Menu")) return nullptr;
+        if (ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)) return nullptr;
         auto menu = ui->GetMenu(DESCS[index].menuName);
         if (!menu || !menu->uiMovie) return nullptr;
         return menu->uiMovie;
@@ -130,7 +123,7 @@ namespace {
             s_state[index].showQueued.store(false);
             return;
         }
-        if (!ui->IsMenuOpen("HUD Menu")) return;
+        if (!ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)) return;
         if (s_state[index].showQueued.exchange(true)) return;
         queue->AddMessage(DESCS[index].menuName, RE::UI_MESSAGE_TYPE::kShow, nullptr);
     }
@@ -356,9 +349,7 @@ void SurvivalWidgets::TickAutoHide() {
 
         auto& state = s_state[i];
         if (state.peekActive.load()) {
-            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                                     std::chrono::steady_clock::now() - state.peekStart)
-                                     .count();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - state.peekStart).count();
             if (elapsed >= std::clamp(Settings::g_widgetHoldSeconds, 3, 60)) {
                 state.peekActive.store(false);
             }
@@ -393,7 +384,7 @@ void SurvivalWidgets::NotifyMenuEvent(const char* menuName, bool opening) {
         return;
     }
 
-    if (name == "HUD Menu") {
+    if (name == RE::HUDMenu::MENU_NAME) {
         if (opening) {
             UpdateAll(true);
         } else {
@@ -404,7 +395,7 @@ void SurvivalWidgets::NotifyMenuEvent(const char* menuName, bool opening) {
         return;
     }
 
-    if (name == "Loading Menu" && !opening) {
+    if (name == RE::LoadingMenu::MENU_NAME && !opening) {
         for (auto& state : s_state) {
             state.showQueued.store(false);
         }

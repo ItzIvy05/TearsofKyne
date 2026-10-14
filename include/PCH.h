@@ -1,10 +1,12 @@
 #pragma once
 
 #include "RE/Skyrim.h"
+#include "REX/REX/Singleton.h"
 #include "SKSE/SKSE.h"
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <format>
 #include <functional>
@@ -17,7 +19,8 @@
 #include <thread>
 #include <vector>
 
-#include <spdlog/sinks/basic_file_sink.h>
+#include <ClibUtil/rng.hpp>
+#include <ClibUtil/string.hpp>
 
 #include "Settings.h"
 

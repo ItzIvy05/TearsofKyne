@@ -12,4 +12,5 @@ namespace WaterskinUtils {
     void SetSystemEnabled(bool enabled);
     void SyncFillPower();
     void SyncDirtyWater();
+    void SyncEnableGlobals(bool enabled);
 }

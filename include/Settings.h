@@ -7,15 +7,16 @@ namespace Settings {
     inline constexpr float DRINK_AMOUNTS[4] = {65.0f, 55.0f, 45.0f, 35.0f};
     inline constexpr const char* DIFFICULTY_NAMES[4] = {"Easy", "Medium", "Hard", "Very Hard"};
 
-    inline constexpr const char* DEFAULT_PLUGIN_NAME = "Tears of Kyne.esp";
-    inline constexpr RE::FormID DEFAULT_FILLED_WATERSKIN_FORM_ID = 0x00000800;
-    inline constexpr RE::FormID DEFAULT_EMPTY_WATERSKIN_FORM_ID = 0x00000804;
+    enum class FillMethod : int { Hotkey = 0, Power = 1, Item = 2 };
 
-    inline constexpr float DEFAULT_WATER_SCAN_RADIUS = 100.0f;
-    inline constexpr int DEFAULT_UPDATE_INTERVAL_SEC = 8;
+    inline constexpr const char* FILL_METHOD_NAMES[3] = {"Hotkey", "Power", "Waterskin"};
 
-    inline constexpr std::uint32_t DEFAULT_FILL_KEY = 0x13;
-    inline constexpr std::uint32_t DEFAULT_TOGGLE_WIDGET_KEY = 0x23;
+    inline constexpr const char* PLUGIN_NAME = "Tears of Kyne.esp";
+    inline constexpr float WATER_SCAN_RADIUS = 100.0f;
+    inline constexpr int UPDATE_INTERVAL_SEC = 8;
+
+    inline constexpr std::uint32_t DEFAULT_FILL_KEY = RE::BSKeyboardDevice::Key::kR;
+    inline constexpr std::uint32_t DEFAULT_TOGGLE_WIDGET_KEY = RE::BSKeyboardDevice::Key::kH;
 
     inline constexpr int DEFAULT_HUD_X = 24;
     inline constexpr int DEFAULT_HUD_Y = 330;
@@ -31,13 +32,6 @@ namespace Settings {
     inline float g_thirstRate = DIFFICULTY_RATES[1];
     inline float g_drinkAmount = DRINK_AMOUNTS[1];
 
-    inline std::string g_pluginName = DEFAULT_PLUGIN_NAME;
-    inline RE::FormID g_filledWaterskinFormID = DEFAULT_FILLED_WATERSKIN_FORM_ID;
-    inline RE::FormID g_emptyWaterskinFormID = DEFAULT_EMPTY_WATERSKIN_FORM_ID;
-
-    inline float g_waterScanRadius = DEFAULT_WATER_SCAN_RADIUS;
-    inline int g_updateIntervalSec = DEFAULT_UPDATE_INTERVAL_SEC;
-
     inline std::uint32_t g_fillKey = DEFAULT_FILL_KEY;
     inline std::uint32_t g_toggleWidgetKey = DEFAULT_TOGGLE_WIDGET_KEY;
 
@@ -52,7 +46,7 @@ namespace Settings {
     inline bool g_deathByDehydration = false;
     inline bool g_enableTears = true;
     inline bool g_enableTearsWithSM = false;
-    inline bool g_useFillPower = false;
+    inline FillMethod g_fillMethod = FillMethod::Hotkey;
     inline bool g_enableDirtyWater = false;
     inline float g_riskLow = 15.0f;
     inline float g_riskFoul = 90.0f;

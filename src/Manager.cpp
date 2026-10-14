@@ -5,7 +5,7 @@
 #include "Utils.h"
 
 namespace {
-    constexpr std::array<const char*, 5> STAGE_SPELL_EDITOR_IDS = {"IvyThirstQuenchedSpell", "IvyThirstSatedSpell", "IvyThirstThirstySpell", "IvyThirstParchedSpell", "IvyThirstDehydratedSpell"};
+    constexpr std::array<RE::FormID, 5> STAGE_SPELL_FORM_IDS = {0x90C, 0x018, 0x019, 0x801, 0x805};  // IvyThirst Quenched / Sated / Thirsty / Parched / Dehydrated Spell
 
     bool IsPlayerInJail() {
         auto* player = RE::PlayerCharacter::GetSingleton();
@@ -21,20 +21,8 @@ namespace {
             }
         }
 
-        static const auto hasJailKeyword = [](RE::BGSLocation* location) -> bool {
-            for (const char* kw : {"LocTypeJail", "LocTypePrison"}) {
-                if (auto* keyword = RE::TESForm::LookupByEditorID<RE::BGSKeyword>(kw)) {
-                    if (location->HasKeyword(keyword)) return true;
-                }
-            }
-            return false;
-        };
-
-        RE::BGSLocation* cur = loc;
-        int guard = 0;
-        while (cur && guard++ < 8) {
-            if (hasJailKeyword(cur)) return true;
-            cur = cur->parentLoc;
+        for (auto* cur = loc; cur; cur = cur->parentLoc) {
+            if (cur->HasKeywordString("LocTypeJail") || cur->HasKeywordString("LocTypePrison")) return true;
         }
         return false;
     }
@@ -70,30 +58,13 @@ namespace {
     }
 
     std::array<RE::SpellItem*, 5> g_stageSpells{};
-    std::array<bool, 5> g_loggedStageSpellLookupFailure{};
 
     RE::SpellItem* ResolveStageSpell(int stage) {
-        if (stage < 0 || stage >= static_cast<int>(STAGE_SPELL_EDITOR_IDS.size())) {
-            return nullptr;
+        auto& spell = g_stageSpells[stage];
+        if (!spell) {
+            spell = RE::TESDataHandler::GetSingleton()->LookupForm<RE::SpellItem>(STAGE_SPELL_FORM_IDS[stage], Settings::PLUGIN_NAME);
         }
-
-        if (g_stageSpells[stage]) {
-            return g_stageSpells[stage];
-        }
-
-        const char* editorID = STAGE_SPELL_EDITOR_IDS[stage];
-        g_stageSpells[stage] = RE::TESForm::LookupByEditorID<RE::SpellItem>(editorID);
-
-        if (!g_stageSpells[stage] && !g_loggedStageSpellLookupFailure[stage]) {
-            logger::warn("[Tears of Kyne] Could not resolve hydration spell '{}'.", editorID);
-            g_loggedStageSpellLookupFailure[stage] = true;
-        }
-
-        if (g_stageSpells[stage]) {
-            g_loggedStageSpellLookupFailure[stage] = false;
-        }
-
-        return g_stageSpells[stage];
+        return spell;
     }
 
     void SyncHydrationStageSpell(int currentStage, bool systemEnabled) {
@@ -102,7 +73,7 @@ namespace {
             return;
         }
 
-        for (int i = 0; i < static_cast<int>(STAGE_SPELL_EDITOR_IDS.size()); ++i) {
+        for (int i = 0; i < static_cast<int>(STAGE_SPELL_FORM_IDS.size()); ++i) {
             auto* spell = ResolveStageSpell(i);
             if (!spell) {
                 continue;
@@ -113,36 +84,22 @@ namespace {
             if (shouldHaveSpell) {
                 if (!player->HasSpell(spell)) {
                     player->AddSpell(spell);
-                    logger::info("[Tears of Kyne] Applied hydration spell '{}'.", STAGE_SPELL_EDITOR_IDS[i]);
+                    logger::info("[Tears of Kyne] Applied hydration spell '{}'.", spell->GetName());
                 }
             } else {
                 if (player->HasSpell(spell)) {
                     player->RemoveSpell(spell);
-                    logger::info("[Tears of Kyne] Removed hydration spell '{}'.", STAGE_SPELL_EDITOR_IDS[i]);
+                    logger::info("[Tears of Kyne] Removed hydration spell '{}'.", spell->GetName());
                 }
             }
         }
     }
 
-    std::string GetStageNotificationText(int stage) {
-        switch (stage) {
-            case 0:
-                return Localization::Get("$TOK_StageQuenched");
-            case 1:
-                return Localization::Get("$TOK_StageSated");
-            case 2:
-                return Localization::Get("$TOK_StageThirsty");
-            case 3:
-                return Localization::Get("$TOK_StageParched");
-            default:
-                return Localization::Get("$TOK_StageDehydrated");
-        }
-    }
 }
 
-WaterNeedManager* WaterNeedManager::GetSingleton() {
-    static WaterNeedManager instance;
-    return &instance;
+std::string WaterNeedManager::GetStageText() const {
+    static constexpr std::array<const char*, 5> keys = {"$TOK_StageQuenched", "$TOK_StageSated", "$TOK_StageThirsty", "$TOK_StageParched", "$TOK_StageDehydrated"};
+    return Localization::Get(keys[GetStage()]);
 }
 
 void WaterNeedManager::InitializeFromSettings() {
@@ -258,7 +215,7 @@ void WaterNeedManager::Tick() {
     TearsWidget::Refresh();
 
     if (changed && currentStage > previousStage) {
-        TearsWidget::ShowNotification(GetStageNotificationText(currentStage).c_str());
+        TearsWidget::ShowNotification(GetStageText().c_str());
     }
 
     if (systemEnabled && !vampirePaused && Settings::g_deathByDehydration && hoursWithoutDrink >= Settings::DEATH_HOURS_WITHOUT_WATER) {

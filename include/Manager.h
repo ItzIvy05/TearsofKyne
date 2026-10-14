@@ -2,10 +2,8 @@
 
 #include <array>
 
-class WaterNeedManager {
+class WaterNeedManager : public REX::Singleton<WaterNeedManager> {
 public:
-    static WaterNeedManager* GetSingleton();
-
     // I dont know how to make it so i dont have to complile dll
     // everytime to balance this {Missile Help}
 
@@ -42,6 +40,7 @@ public:
 
     [[nodiscard]] float GetLevel() const;
     [[nodiscard]] int GetStage() const;
+    [[nodiscard]] std::string GetStageText() const;
 
     [[nodiscard]] float GetLastGameTime() const;
     void SetLastGameTime(float value);
@@ -50,6 +49,8 @@ public:
     void SetHoursWithoutDrink(float value);
 
 private:
+    friend REX::Singleton<WaterNeedManager>;
+
     WaterNeedManager() = default;
 
     [[nodiscard]] int StageFromLevel(float level) const;

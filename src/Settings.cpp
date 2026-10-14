@@ -3,55 +3,18 @@
 #include <Windows.h>
 
 #include <algorithm>
-#include <cctype>
+#include <climits>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <vector>
 
+#include <ClibUtil/hotkeys.hpp>
+
 namespace Settings {
     namespace {
-        struct KeyNameEntry {
-            std::uint32_t code;
-            const char* name;
-        };
-
-        constexpr KeyNameEntry KEY_NAMES[] = {
-            {0x01, "ESC"},   {0x02, "1"},         {0x03, "2"},     {0x04, "3"},     {0x05, "4"},     {0x06, "5"},
-            {0x07, "6"},     {0x08, "7"},         {0x09, "8"},     {0x0A, "9"},     {0x0B, "0"},     {0x0C, "-"},
-            {0x0D, "="},     {0x0E, "BACKSPACE"}, {0x0F, "TAB"},   {0x10, "Q"},     {0x11, "W"},     {0x12, "E"},
-            {0x13, "R"},     {0x14, "T"},         {0x15, "Y"},     {0x16, "U"},     {0x17, "I"},     {0x18, "O"},
-            {0x19, "P"},     {0x1A, "["},         {0x1B, "]"},     {0x1C, "ENTER"}, {0x1D, "LCTRL"}, {0x1E, "A"},
-            {0x1F, "S"},     {0x20, "D"},         {0x21, "F"},     {0x22, "G"},     {0x23, "H"},     {0x24, "J"},
-            {0x25, "K"},     {0x26, "L"},         {0x27, ";"},     {0x28, "'"},     {0x29, "`"},     {0x2A, "LSHIFT"},
-            {0x2B, "\\"},    {0x2C, "Z"},         {0x2D, "X"},     {0x2E, "C"},     {0x2F, "V"},     {0x30, "B"},
-            {0x31, "N"},     {0x32, "M"},         {0x33, ","},     {0x34, "."},     {0x35, "/"},     {0x36, "RSHIFT"},
-            {0x37, "NUM*"},  {0x38, "LALT"},      {0x39, "SPACE"}, {0x3A, "CAPS"},  {0x3B, "F1"},    {0x3C, "F2"},
-            {0x3D, "F3"},    {0x3E, "F4"},        {0x3F, "F5"},    {0x40, "F6"},    {0x41, "F7"},    {0x42, "F8"},
-            {0x43, "F9"},    {0x44, "F10"},       {0x57, "F11"},   {0x58, "F12"},   {0x47, "NUM7"},  {0x48, "NUM8"},
-            {0x49, "NUM9"},  {0x4A, "NUM-"},      {0x4B, "NUM4"},  {0x4C, "NUM5"},  {0x4D, "NUM6"},  {0x4E, "NUM+"},
-            {0x4F, "NUM1"},  {0x50, "NUM2"},      {0x51, "NUM3"},  {0x52, "NUM0"},  {0x53, "NUM."},  {0x9C, "NUMENTER"},
-            {0x9D, "RCTRL"}, {0xB5, "NUM/"},      {0xB8, "RALT"},  {0xC7, "HOME"},  {0xC8, "UP"},    {0xC9, "PGUP"},
-            {0xCB, "LEFT"},  {0xCD, "RIGHT"},     {0xCF, "END"},   {0xD0, "DOWN"},  {0xD1, "PGDN"},  {0xD2, "INS"},
-            {0xD3, "DEL"}};
-
-        void Trim(std::string& value) {
-            const auto first = value.find_first_not_of(" \t\r\n");
-            if (first == std::string::npos) {
-                value.clear();
-                return;
-            }
-            const auto last = value.find_last_not_of(" \t\r\n");
-            value = value.substr(first, last - first + 1);
-        }
-
-        std::string UpperCopy(std::string value) {
-            for (char& c : value) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-            return value;
-        }
-
         bool TryParseUInt(std::string value, std::uint32_t& out) {
-            Trim(value);
+            clib_util::string::trim(value);
             if (value.empty()) return false;
             try {
                 std::size_t index = 0;
@@ -65,11 +28,19 @@ namespace Settings {
         }
 
         bool ParseBool(std::string value, bool fallback) {
-            Trim(value);
-            value = UpperCopy(value);
+            clib_util::string::trim(value);
+            value = clib_util::string::toupper(value);
             if (value == "1" || value == "TRUE" || value == "YES" || value == "ON") return true;
             if (value == "0" || value == "FALSE" || value == "NO" || value == "OFF") return false;
             return fallback;
+        }
+
+        template <class T>
+        void ReadNumber(const std::string& value, T& out, T min, T max) {
+            try {
+                out = std::clamp(clib_util::string::to_num<T>(value), min, max);
+            } catch (...) {
+            }
         }
 
         std::string GetINIPath() {
@@ -89,11 +60,6 @@ namespace Settings {
 
         void ResetDefaults() {
             ApplyDifficulty(Difficulty::Medium);
-            g_pluginName = DEFAULT_PLUGIN_NAME;
-            g_filledWaterskinFormID = DEFAULT_FILLED_WATERSKIN_FORM_ID;
-            g_emptyWaterskinFormID = DEFAULT_EMPTY_WATERSKIN_FORM_ID;
-            g_waterScanRadius = DEFAULT_WATER_SCAN_RADIUS;
-            g_updateIntervalSec = DEFAULT_UPDATE_INTERVAL_SEC;
             g_fillKey = DEFAULT_FILL_KEY;
             g_toggleWidgetKey = DEFAULT_TOGGLE_WIDGET_KEY;
             g_hudX = DEFAULT_HUD_X;
@@ -107,7 +73,7 @@ namespace Settings {
             g_deathByDehydration = false;
             g_enableTears = true;
             g_enableTearsWithSM = false;
-            g_useFillPower = false;
+            g_fillMethod = FillMethod::Hotkey;
             g_enableDirtyWater = false;
             g_riskLow = 15.0f;
             g_riskFoul = 90.0f;
@@ -142,47 +108,30 @@ namespace Settings {
             return 0;
         }
 
-        std::string entry = g_perkForms;
-        if (const size_t comma = entry.find(','); comma != std::string::npos) {
-            entry = entry.substr(0, comma);
-        }
-
-        const size_t a = entry.find_first_not_of(" \t");
-        if (a == std::string::npos) {
-            return 0;
-        }
-        const size_t b = entry.find_last_not_of(" \t");
-        entry = entry.substr(a, b - a + 1);
-        if (entry.empty()) {
+        if (g_perkForms.empty()) {
             return 0;
         }
 
-        const size_t bar = entry.find('|');
-        if (bar == std::string::npos) {
-            return 0;
-        }
+        auto entry = clib_util::string::split(g_perkForms, ",").front();
+        clib_util::string::trim(entry);
 
-        const std::string plugin = entry.substr(0, bar);
-        const std::string idStr = entry.substr(bar + 1);
-        if (plugin.empty() || idStr.empty()) {
+        const auto parts = clib_util::string::split(entry, "|");
+        if (parts.size() < 2 || parts[0].empty() || parts[1].empty()) {
             return 0;
         }
 
         RE::FormID localID = 0;
         try {
-            localID = static_cast<RE::FormID>(std::stoul(idStr, nullptr, 16));
+            localID = clib_util::string::to_num<RE::FormID>(parts[1], true);
         } catch (...) {
             return 0;
         }
 
-        if (auto* form = dataHandler->LookupForm(localID, plugin)) {
-            if (auto* perk = form->As<RE::BGSPerk>()) {
-                g_parsedPerks.push_back(perk);
-            }
+        if (auto* perk = dataHandler->LookupForm<RE::BGSPerk>(localID, parts[0])) {
+            g_parsedPerks.push_back(perk);
         }
 
-        logger::info("[Settings] Perk gate: {}/{} perks parsed.", static_cast<int>(g_parsedPerks.size()),
-                     g_requestedPerkCount);
+        logger::info("[Settings] Perk gate: {}/{} perks parsed.", static_cast<int>(g_parsedPerks.size()), g_requestedPerkCount);
         return static_cast<int>(g_parsedPerks.size());
     }
 
@@ -198,30 +147,25 @@ namespace Settings {
         }
         return false;
     }
+
     std::string GetKeyName(std::uint32_t scanCode) {
         if (scanCode == 0) return "Unbound";
-        for (const auto& entry : KEY_NAMES) {
-            if (entry.code == scanCode) return entry.name;
+        try {
+            return clib_util::string::toupper(clib_util::hotkeys::details::GetNameByKey(scanCode));
+        } catch (const std::range_error&) {
+            return std::format("0x{:02X}", scanCode);
         }
-        return std::format("0x{:02X}", scanCode);
     }
 
     bool TryParseKeyName(std::string value, std::uint32_t& out) {
-        Trim(value);
+        clib_util::string::trim(value);
         if (value.empty()) return false;
-        std::string name = UpperCopy(value);
-        if (name == "NUMPAD+") name = "NUM+";
-        if (name == "NUMPAD-") name = "NUM-";
-        if (name == "NUMPAD/") name = "NUM/";
-        if (name == "NUMPAD*") name = "NUM*";
-        if (name == "NUMPADENTER") name = "NUMENTER";
-        for (const auto& entry : KEY_NAMES) {
-            if (name == entry.name) {
-                out = entry.code;
-                return true;
-            }
+        try {
+            out = clib_util::hotkeys::details::GetKeyByName(clib_util::string::tolower(value));
+            return true;
+        } catch (const std::range_error&) {
+            return TryParseUInt(value, out);
         }
-        return TryParseUInt(value, out);
     }
 
     void LoadFromINI() {
@@ -240,10 +184,13 @@ namespace Settings {
             return;
         }
 
+        bool hasFillMethod = false;
+        bool legacyFillPower = false;
+
         std::string line;
         while (std::getline(file, line)) {
             if (const auto comment = line.find(';'); comment != std::string::npos) line.erase(comment);
-            Trim(line);
+            clib_util::string::trim(line);
             if (line.empty() || line.front() == '[') continue;
 
             const auto equals = line.find('=');
@@ -251,43 +198,31 @@ namespace Settings {
 
             std::string key = line.substr(0, equals);
             std::string value = line.substr(equals + 1);
-            Trim(key);
-            Trim(value);
+            clib_util::string::trim(key);
+            clib_util::string::trim(value);
 
             std::uint32_t parsedKey = 0;
 
             if (key == "FillKey") {
                 if (TryParseKeyName(value, parsedKey)) g_fillKey = parsedKey;
             } else if (key == "ToggleWidgetKey") {
-                if (value == "0" || UpperCopy(value) == "UNBOUND") {
+                if (value == "0" || clib_util::string::toupper(value) == "UNBOUND") {
                     g_toggleWidgetKey = 0;
                 } else if (TryParseKeyName(value, parsedKey)) {
                     g_toggleWidgetKey = parsedKey;
                 }
             } else if (key == "HudX") {
-                try {
-                    g_hudX = std::max(0, std::stoi(value));
-                } catch (...) {
-                }
+                ReadNumber(value, g_hudX, 0, INT_MAX);
             } else if (key == "HudY") {
-                try {
-                    g_hudY = std::max(0, std::stoi(value));
-                } catch (...) {
-                }
+                ReadNumber(value, g_hudY, 0, INT_MAX);
             } else if (key == "WidgetScale") {
-                try {
-                    g_widgetScale = std::clamp(std::stoi(value), 10, 150);
-                } catch (...) {
-                }
+                ReadNumber(value, g_widgetScale, 10, 150);
             } else if (key == "bHudVisible") {
                 g_hudVisible = ParseBool(value, true);
             } else if (key == "bWidgetAutoHide") {
                 g_widgetAutoHide = ParseBool(value, false);
             } else if (key == "WidgetHoldSeconds") {
-                try {
-                    g_widgetHoldSeconds = std::clamp(std::stoi(value), 3, 60);
-                } catch (...) {
-                }
+                ReadNumber(value, g_widgetHoldSeconds, 3, 60);
             } else if (key == "bPauseNeedsInJail") {
                 g_pauseNeedsInJail = ParseBool(value, true);
             } else if (key == "bDisableForVampire") {
@@ -298,25 +233,22 @@ namespace Settings {
                 g_enableTears = ParseBool(value, true);
             } else if (key == "bEnableTearsWithSM") {
                 g_enableTearsWithSM = ParseBool(value, false);
+            } else if (key == "iFillMethod") {
+                try {
+                    g_fillMethod = static_cast<FillMethod>(std::clamp(clib_util::string::to_num<int>(value), 0, 2));
+                    hasFillMethod = true;
+                } catch (...) {
+                }
             } else if (key == "bUseFillPower") {
-                g_useFillPower = ParseBool(value, false);
+                legacyFillPower = ParseBool(value, false);
             } else if (key == "bEnableDirtyWater") {
                 g_enableDirtyWater = ParseBool(value, false);
             } else if (key == "fRiskLow") {
-                try {
-                    g_riskLow = std::clamp(std::stof(value), 0.0f, 100.0f);
-                } catch (...) {
-                }
+                ReadNumber(value, g_riskLow, 0.0f, 100.0f);
             } else if (key == "fRiskFoul") {
-                try {
-                    g_riskFoul = std::clamp(std::stof(value), 0.0f, 100.0f);
-                } catch (...) {
-                }
+                ReadNumber(value, g_riskFoul, 0.0f, 100.0f);
             } else if (key == "fBottleQuench") {
-                try {
-                    g_bottleQuench = std::clamp(std::stof(value), 15.0f, 75.0f);
-                } catch (...) {
-                }
+                ReadNumber(value, g_bottleQuench, 15.0f, 75.0f);
             } else if (key == "bReuseBottles") {
                 g_reuseBottles = ParseBool(value, true);
             } else if (key == "bEnablePerkGate") {
@@ -324,10 +256,7 @@ namespace Settings {
             } else if (key == "sPerkForms") {
                 g_perkForms = value;
             } else if (key == "fPerkRateReduction") {
-                try {
-                    g_perkRateReduction = std::clamp(std::stof(value), 15.0f, 75.0f);
-                } catch (...) {
-                }
+                ReadNumber(value, g_perkRateReduction, 15.0f, 75.0f);
             } else if (key == "bUseKynesEmbraceGlobal") {
                 g_useKynesEmbraceGlobal = ParseBool(value, false);
             } else if (key == "bEnableLogging") {
@@ -339,24 +268,15 @@ namespace Settings {
                     if (key == base + "Enabled") {
                         g_survivalWidgetEnabled[i] = ParseBool(value, false);
                     } else if (key == base + "X") {
-                        try {
-                            g_survivalWidgetX[i] = std::max(0, std::stoi(value));
-                        } catch (...) {
-                        }
+                        ReadNumber(value, g_survivalWidgetX[i], 0, INT_MAX);
                     } else if (key == base + "Y") {
-                        try {
-                            g_survivalWidgetY[i] = std::max(0, std::stoi(value));
-                        } catch (...) {
-                        }
+                        ReadNumber(value, g_survivalWidgetY[i], 0, INT_MAX);
                     } else if (key == base + "Scale") {
-                        try {
-                            g_survivalWidgetScale[i] = std::clamp(std::stoi(value), 10, 150);
-                        } catch (...) {
-                        }
+                        ReadNumber(value, g_survivalWidgetScale[i], 10, 150);
                     }
                 }
             } else if (key == "Difficulty") {
-                const auto upper = UpperCopy(value);
+                const auto upper = clib_util::string::toupper(value);
                 if (upper == "0" || upper == "EASY") {
                     ApplyDifficulty(Difficulty::Easy);
                 } else if (upper == "2" || upper == "HARD") {
@@ -369,6 +289,11 @@ namespace Settings {
             }
         }
 
+        // ini from before the fill method dropdown
+        if (!hasFillMethod && legacyFillPower) {
+            g_fillMethod = FillMethod::Power;
+        }
+
         if (g_enablePerkGate && g_difficulty != Difficulty::Hard && g_difficulty != Difficulty::VeryHard) {
             ApplyDifficulty(Difficulty::Hard);
         }
@@ -377,11 +302,7 @@ namespace Settings {
 
         spdlog::set_level(g_enableLogging ? spdlog::level::info : spdlog::level::off);
 
-        logger::info(
-            "[Settings] Loaded. FillKey={} ToggleWidgetKey={} HudX={} HudY={} WidgetScale={} HUDVisible={} "
-            "Difficulty={}",
-            GetKeyName(g_fillKey), GetKeyName(g_toggleWidgetKey), g_hudX, g_hudY, g_widgetScale, g_hudVisible ? 1 : 0,
-            DIFFICULTY_NAMES[static_cast<int>(g_difficulty)]);
+        logger::info("[Settings] Loaded. FillKey={} ToggleWidgetKey={} HudX={} HudY={} WidgetScale={} HUDVisible={} Difficulty={}", GetKeyName(g_fillKey), GetKeyName(g_toggleWidgetKey), g_hudX, g_hudY, g_widgetScale, g_hudVisible ? 1 : 0, DIFFICULTY_NAMES[static_cast<int>(g_difficulty)]);
     }
 
     void SaveToINI() {
@@ -412,7 +333,7 @@ namespace Settings {
             {"WidgetHoldSeconds", std::to_string(g_widgetHoldSeconds)},
             {"FillKey", GetKeyName(g_fillKey)},
             {"ToggleWidgetKey", g_toggleWidgetKey == 0 ? "0" : GetKeyName(g_toggleWidgetKey)},
-            {"bUseFillPower", g_useFillPower ? "1" : "0"},
+            {"iFillMethod", std::to_string(static_cast<int>(g_fillMethod))},
             {"bEnableLogging", g_enableLogging ? "1" : "0"},
         };
 

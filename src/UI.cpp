@@ -6,8 +6,6 @@
 
 namespace ImGui = ImGuiMCP;
 
-#include "Hotkeys.h"
-#include "Manager.h"
 #include "Menu.h"
 #include "Settings.h"
 #include "SurvivalWidgets.h"
@@ -22,190 +20,17 @@ namespace {
     constexpr ImGui::ImVec4 GOLD_GRAB{0.90f, 0.76f, 0.42f, 1.00f};
     constexpr ImGui::ImVec4 SEP_LINE{0.55f, 0.46f, 0.26f, 0.45f};
 
-    std::uint32_t ImGuiKeyToScanCode(int key) {
-        using namespace ImGui;
-        switch (key) {
-            case ImGuiKey_A:
-                return 0x1E;
-            case ImGuiKey_B:
-                return 0x30;
-            case ImGuiKey_C:
-                return 0x2E;
-            case ImGuiKey_D:
-                return 0x20;
-            case ImGuiKey_E:
-                return 0x12;
-            case ImGuiKey_F:
-                return 0x21;
-            case ImGuiKey_G:
-                return 0x22;
-            case ImGuiKey_H:
-                return 0x23;
-            case ImGuiKey_I:
-                return 0x17;
-            case ImGuiKey_J:
-                return 0x24;
-            case ImGuiKey_K:
-                return 0x25;
-            case ImGuiKey_L:
-                return 0x26;
-            case ImGuiKey_M:
-                return 0x32;
-            case ImGuiKey_N:
-                return 0x31;
-            case ImGuiKey_O:
-                return 0x18;
-            case ImGuiKey_P:
-                return 0x19;
-            case ImGuiKey_Q:
-                return 0x10;
-            case ImGuiKey_R:
-                return 0x13;
-            case ImGuiKey_S:
-                return 0x1F;
-            case ImGuiKey_T:
-                return 0x14;
-            case ImGuiKey_U:
-                return 0x16;
-            case ImGuiKey_V:
-                return 0x2F;
-            case ImGuiKey_W:
-                return 0x11;
-            case ImGuiKey_X:
-                return 0x2D;
-            case ImGuiKey_Y:
-                return 0x15;
-            case ImGuiKey_Z:
-                return 0x2C;
-            case ImGuiKey_0:
-                return 0x0B;
-            case ImGuiKey_1:
-                return 0x02;
-            case ImGuiKey_2:
-                return 0x03;
-            case ImGuiKey_3:
-                return 0x04;
-            case ImGuiKey_4:
-                return 0x05;
-            case ImGuiKey_5:
-                return 0x06;
-            case ImGuiKey_6:
-                return 0x07;
-            case ImGuiKey_7:
-                return 0x08;
-            case ImGuiKey_8:
-                return 0x09;
-            case ImGuiKey_9:
-                return 0x0A;
-            case ImGuiKey_F1:
-                return 0x3B;
-            case ImGuiKey_F2:
-                return 0x3C;
-            case ImGuiKey_F3:
-                return 0x3D;
-            case ImGuiKey_F4:
-                return 0x3E;
-            case ImGuiKey_F5:
-                return 0x3F;
-            case ImGuiKey_F6:
-                return 0x40;
-            case ImGuiKey_F7:
-                return 0x41;
-            case ImGuiKey_F8:
-                return 0x42;
-            case ImGuiKey_F9:
-                return 0x43;
-            case ImGuiKey_F10:
-                return 0x44;
-            case ImGuiKey_F11:
-                return 0x57;
-            case ImGuiKey_F12:
-                return 0x58;
-            case ImGuiKey_Space:
-                return 0x39;
-            case ImGuiKey_Enter:
-                return 0x1C;
-            case ImGuiKey_Tab:
-                return 0x0F;
-            case ImGuiKey_Minus:
-                return 0x0C;
-            case ImGuiKey_Equal:
-                return 0x0D;
-            case ImGuiKey_LeftBracket:
-                return 0x1A;
-            case ImGuiKey_RightBracket:
-                return 0x1B;
-            case ImGuiKey_Semicolon:
-                return 0x27;
-            case ImGuiKey_Apostrophe:
-                return 0x28;
-            case ImGuiKey_GraveAccent:
-                return 0x29;
-            case ImGuiKey_Backslash:
-                return 0x2B;
-            case ImGuiKey_Comma:
-                return 0x33;
-            case ImGuiKey_Period:
-                return 0x34;
-            case ImGuiKey_Slash:
-                return 0x35;
-            case ImGuiKey_Keypad0:
-                return 0x52;
-            case ImGuiKey_Keypad1:
-                return 0x4F;
-            case ImGuiKey_Keypad2:
-                return 0x50;
-            case ImGuiKey_Keypad3:
-                return 0x51;
-            case ImGuiKey_Keypad4:
-                return 0x4B;
-            case ImGuiKey_Keypad5:
-                return 0x4C;
-            case ImGuiKey_Keypad6:
-                return 0x4D;
-            case ImGuiKey_Keypad7:
-                return 0x47;
-            case ImGuiKey_Keypad8:
-                return 0x48;
-            case ImGuiKey_Keypad9:
-                return 0x49;
-            case ImGuiKey_Home:
-                return 0xC7;
-            case ImGuiKey_End:
-                return 0xCF;
-            case ImGuiKey_Insert:
-                return 0xD2;
-            case ImGuiKey_Delete:
-                return 0xD3;
-            case ImGuiKey_PageUp:
-                return 0xC9;
-            case ImGuiKey_PageDown:
-                return 0xD1;
-            case ImGuiKey_UpArrow:
-                return 0xC8;
-            case ImGuiKey_DownArrow:
-                return 0xD0;
-            case ImGuiKey_LeftArrow:
-                return 0xCB;
-            case ImGuiKey_RightArrow:
-                return 0xCD;
-            default:
-                return 0u;
-        }
-    }
-
     void PollKeyCapture() {
         if (!TearsWidget::IsAwaitingBinding()) return;
 
-        if (ImGui::IsKeyPressed(ImGui::ImGuiKey_Escape, false)) {
-            TearsWidget::CancelBinding();
-            return;
-        }
-        for (int k = ImGui::ImGuiKey_NamedKey_BEGIN; k < ImGui::ImGuiKey_NamedKey_END; ++k) {
-            if (!ImGui::IsKeyPressed(static_cast<ImGui::ImGuiKey>(k), false)) continue;
-            const std::uint32_t scan = ImGuiKeyToScanCode(k);
-            if (scan != 0) {
-                TearsWidget::CaptureBindingKey(scan);
+        auto* keyboard = RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
+        if (!keyboard) return;
+
+        // same check as IsPressed, which drags in the device's unresolved vfuncs
+        const auto& keys = keyboard->GetRuntimeData().curState;
+        for (std::uint32_t key = 1; key < std::size(keys); ++key) {
+            if (keys[key] & 0x80) {
+                TearsWidget::CaptureBindingKey(key);
                 return;
             }
         }
@@ -255,6 +80,26 @@ namespace {
         ImGui::TableSetColumnIndex(1);
         ImGui::SetNextItemWidth(-1.0f);
     }
+
+    bool CheckboxRow(const char* label, const char* id, bool& value) {
+        RowLabel(label);
+        if (!ImGui::Checkbox(id, &value)) return false;
+        Settings::SaveToINI();
+        return true;
+    }
+
+    void PercentSliderRow(const char* label, const char* id, float& value, float min, float max) {
+        RowLabel(label);
+        if (ImGui::SliderFloat(id, &value, min, max, "%.0f%%")) value = std::clamp(value, min, max);
+        if (ImGui::IsItemDeactivatedAfterEdit()) Settings::SaveToINI();
+    }
+
+    bool IntSliderRow(const char* label, const char* id, int& value, int min, int max, const char* format) {
+        RowLabel(label);
+        const bool changed = ImGui::SliderInt(id, &value, min, max, format);
+        if (ImGui::IsItemDeactivatedAfterEdit()) Settings::SaveToINI();
+        return changed;
+    }
 }
 
 void UI::Register() {
@@ -274,23 +119,11 @@ void __stdcall UI::RenderSystem() {
 
     Heading("System");
     if (BeginSettingsTable("system_tbl")) {
-        bool enableTears = Settings::g_enableTears;
-        RowLabel("Enable Tears of Kyne");
-        if (ImGui::Checkbox("##enable", &enableTears)) {
-            Settings::g_enableTears = enableTears;
-            Settings::SaveToINI();
-            if (!Settings::g_enableTearsWithSM) {
-                WaterskinUtils::SetSystemEnabled(enableTears);
-                TearsWidget::Refresh();
-            }
+        if (CheckboxRow("Enable Tears of Kyne", "##enable", Settings::g_enableTears) && !Settings::g_enableTearsWithSM) {
+            WaterskinUtils::SetSystemEnabled(Settings::g_enableTears);
+            TearsWidget::Refresh();
         }
-
-        bool syncSM = Settings::g_enableTearsWithSM;
-        RowLabel("Sync with Survival Mode");
-        if (ImGui::Checkbox("##syncsm", &syncSM)) {
-            Settings::g_enableTearsWithSM = syncSM;
-            Settings::SaveToINI();
-        }
+        CheckboxRow("Sync with Survival Mode", "##syncsm", Settings::g_enableTearsWithSM);
         ImGui::EndTable();
     }
 
@@ -302,7 +135,6 @@ void __stdcall UI::RenderGameplay() {
 
     Heading("Gameplay");
     if (BeginSettingsTable("gameplay_tbl")) {
-        static const char* difficultyNames[] = {"Easy", "Medium", "Hard", "Very Hard"};
         int difficulty = static_cast<int>(Settings::g_difficulty);
         RowLabel("Difficulty");
         if (Settings::g_enablePerkGate) {
@@ -314,91 +146,39 @@ void __stdcall UI::RenderGameplay() {
                 TearsWidget::Refresh();
             }
             ImGui::TextColored(GOLD_DIM, "Locked to Hard / Very Hard by Perk Gate.");
-        } else {
-            if (ImGui::Combo("##difficulty", &difficulty, difficultyNames, 4)) {
-                Settings::ApplyDifficulty(static_cast<Settings::Difficulty>(std::clamp(difficulty, 0, 3)));
-                Settings::SaveToINI();
-                TearsWidget::Refresh();
-            }
-        }
-
-        bool pauseJail = Settings::g_pauseNeedsInJail;
-        RowLabel("Pause Needs in Jail");
-        if (ImGui::Checkbox("##jail", &pauseJail)) {
-            Settings::g_pauseNeedsInJail = pauseJail;
-            Settings::SaveToINI();
-        }
-
-        bool vampire = Settings::g_disableForVampire;
-        RowLabel("No Thirst as Vampire");
-        if (ImGui::Checkbox("##vampire", &vampire)) {
-            Settings::g_disableForVampire = vampire;
+        } else if (ImGui::Combo("##difficulty", &difficulty, Settings::DIFFICULTY_NAMES, 4)) {
+            Settings::ApplyDifficulty(static_cast<Settings::Difficulty>(std::clamp(difficulty, 0, 3)));
             Settings::SaveToINI();
             TearsWidget::Refresh();
         }
 
-        bool deathToggle = Settings::g_deathByDehydration;
-        RowLabel("Death by Dehydration");
-        if (ImGui::Checkbox("##deathdehydration", &deathToggle)) {
-            Settings::g_deathByDehydration = deathToggle;
-            Settings::SaveToINI();
+        CheckboxRow("Pause Needs in Jail", "##jail", Settings::g_pauseNeedsInJail);
+        if (CheckboxRow("No Thirst as Vampire", "##vampire", Settings::g_disableForVampire)) {
+            TearsWidget::Refresh();
         }
-
+        CheckboxRow("Death by Dehydration", "##deathdehydration", Settings::g_deathByDehydration);
         if (Settings::g_deathByDehydration) {
             ImGui::TextColored(GOLD_DIM, "You will die if you go 5 days without drinking.");
         }
-
-        bool reuseBottles = Settings::g_reuseBottles;
-        RowLabel("Reusable Bottles");
-        if (ImGui::Checkbox("##reusebottles", &reuseBottles)) {
-            Settings::g_reuseBottles = reuseBottles;
-            Settings::SaveToINI();
-        }
-
+        CheckboxRow("Reusable Bottles", "##reusebottles", Settings::g_reuseBottles);
         if (Settings::g_reuseBottles) {
-            float bottleQuench = Settings::g_bottleQuench;
-            RowLabel("Bottle Quench");
-            if (ImGui::SliderFloat("##bottlequench", &bottleQuench, 15.0f, 75.0f, "%.0f%%")) {
-                Settings::g_bottleQuench = std::clamp(bottleQuench, 15.0f, 75.0f);
-            }
-            if (ImGui::IsItemDeactivatedAfterEdit()) {
-                Settings::SaveToINI();
-            }
+            PercentSliderRow("Bottle Quench", "##bottlequench", Settings::g_bottleQuench, 15.0f, 75.0f);
         }
-
         ImGui::EndTable();
     }
 
     Heading("Perk Gate");
     if (BeginSettingsTable("perk_tbl")) {
-        bool perkGate = Settings::g_enablePerkGate;
-        RowLabel("Enable Perk Gate");
-        if (ImGui::Checkbox("##perkgate", &perkGate)) {
-            Settings::g_enablePerkGate = perkGate;
-            if (perkGate && Settings::g_difficulty != Settings::Difficulty::Hard &&
-                Settings::g_difficulty != Settings::Difficulty::VeryHard) {
+        if (CheckboxRow("Enable Perk Gate", "##perkgate", Settings::g_enablePerkGate)) {
+            if (Settings::g_enablePerkGate && Settings::g_difficulty != Settings::Difficulty::Hard && Settings::g_difficulty != Settings::Difficulty::VeryHard) {
                 Settings::ApplyDifficulty(Settings::Difficulty::Hard);
-            }
-            Settings::SaveToINI();
-            TearsWidget::Refresh();
-        }
-
-        bool perkGlobal = Settings::g_useKynesEmbraceGlobal;
-        RowLabel("Use Kyne's Embrace Global");
-        if (ImGui::Checkbox("##perkglobal", &perkGlobal)) {
-            Settings::g_useKynesEmbraceGlobal = perkGlobal;
-            Settings::SaveToINI();
-        }
-
-        if (!Settings::g_useKynesEmbraceGlobal) {
-            float reduction = Settings::g_perkRateReduction;
-            RowLabel("Rate Reduction");
-            if (ImGui::SliderFloat("##perkrate", &reduction, 15.0f, 75.0f, "%.0f%%")) {
-                Settings::g_perkRateReduction = std::clamp(reduction, 15.0f, 75.0f);
-            }
-            if (ImGui::IsItemDeactivatedAfterEdit()) {
                 Settings::SaveToINI();
             }
+            TearsWidget::Refresh();
+        }
+        CheckboxRow("Use Kyne's Embrace Global", "##perkglobal", Settings::g_useKynesEmbraceGlobal);
+        if (!Settings::g_useKynesEmbraceGlobal) {
+            PercentSliderRow("Rate Reduction", "##perkrate", Settings::g_perkRateReduction, 15.0f, 75.0f);
         }
         ImGui::EndTable();
     }
@@ -418,38 +198,16 @@ void __stdcall UI::RenderGameplay() {
         Settings::g_perkFormsDirty.store(true);
     }
 
-    const int parsed = Settings::GetParsedPerkCount();
-    const int requested = Settings::GetRequestedPerkCount();
-    ImGui::TextColored(GOLD_DIM, "%d / %d Perk Parsed", parsed, requested);
+    ImGui::TextColored(GOLD_DIM, "%d / %d Perk Parsed", Settings::GetParsedPerkCount(), Settings::GetRequestedPerkCount());
 
     Heading("Dirty Water");
     if (BeginSettingsTable("dirty_tbl")) {
-        bool enableDirty = Settings::g_enableDirtyWater;
-        RowLabel("Enable Dirty Water");
-        if (ImGui::Checkbox("##enabledirty", &enableDirty)) {
-            Settings::g_enableDirtyWater = enableDirty;
-            Settings::SaveToINI();
+        if (CheckboxRow("Enable Dirty Water", "##enabledirty", Settings::g_enableDirtyWater)) {
             WaterskinUtils::SyncDirtyWater();
         }
-
         if (Settings::g_enableDirtyWater) {
-            float riskLow = Settings::g_riskLow;
-            RowLabel("River Sickness Chance");
-            if (ImGui::SliderFloat("##risklow", &riskLow, 0.0f, 100.0f, "%.0f%%")) {
-                Settings::g_riskLow = std::clamp(riskLow, 0.0f, 100.0f);
-            }
-            if (ImGui::IsItemDeactivatedAfterEdit()) {
-                Settings::SaveToINI();
-            }
-
-            float riskFoul = Settings::g_riskFoul;
-            RowLabel("Swamp Sickness Chance");
-            if (ImGui::SliderFloat("##riskfoul", &riskFoul, 0.0f, 100.0f, "%.0f%%")) {
-                Settings::g_riskFoul = std::clamp(riskFoul, 0.0f, 100.0f);
-            }
-            if (ImGui::IsItemDeactivatedAfterEdit()) {
-                Settings::SaveToINI();
-            }
+            PercentSliderRow("River Sickness Chance", "##risklow", Settings::g_riskLow, 0.0f, 100.0f);
+            PercentSliderRow("Swamp Sickness Chance", "##riskfoul", Settings::g_riskFoul, 0.0f, 100.0f);
         }
         ImGui::EndTable();
     }
@@ -464,42 +222,18 @@ void __stdcall UI::RenderUIKeybind() {
 
     Heading("Widget");
     if (BeginSettingsTable("widget_tbl")) {
-        bool hudVisible = Settings::g_hudVisible;
-        RowLabel("Show Widget");
-        if (ImGui::Checkbox("##showwidget", &hudVisible)) {
-            Settings::g_hudVisible = hudVisible;
-            Settings::SaveToINI();
+        if (CheckboxRow("Show Widget", "##showwidget", Settings::g_hudVisible)) {
             TearsWidget::Refresh();
             SurvivalWidgets::Refresh();
         }
-
         int scale = Settings::g_widgetScale;
-        RowLabel("Scale");
-        if (ImGui::SliderInt("##scale", &scale, 10, 150, "%d%%")) {
-            TearsWidget::SetScale(scale);
-        }
-        if (ImGui::IsItemDeactivatedAfterEdit()) {
-            Settings::SaveToINI();
-        }
-
-        bool autoHide = Settings::g_widgetAutoHide;
-        RowLabel("Auto-Hide Widget");
-        if (ImGui::Checkbox("##autohide", &autoHide)) {
-            Settings::g_widgetAutoHide = autoHide;
-            Settings::SaveToINI();
+        if (IntSliderRow("Scale", "##scale", scale, 10, 150, "%d%%")) TearsWidget::SetScale(scale);
+        if (CheckboxRow("Auto-Hide Widget", "##autohide", Settings::g_widgetAutoHide)) {
             TearsWidget::Refresh();
             SurvivalWidgets::Refresh();
         }
-
         if (Settings::g_widgetAutoHide) {
-            int hold = Settings::g_widgetHoldSeconds;
-            RowLabel("Hold Time");
-            if (ImGui::SliderInt("##holdsec", &hold, 3, 60, "%d s")) {
-                Settings::g_widgetHoldSeconds = std::clamp(hold, 3, 60);
-            }
-            if (ImGui::IsItemDeactivatedAfterEdit()) {
-                Settings::SaveToINI();
-            }
+            if (IntSliderRow("Hold Time", "##holdsec", Settings::g_widgetHoldSeconds, 3, 60, "%d s")) Settings::g_widgetHoldSeconds = std::clamp(Settings::g_widgetHoldSeconds, 3, 60);
         }
         ImGui::EndTable();
     }
@@ -510,23 +244,10 @@ void __stdcall UI::RenderUIKeybind() {
     Heading("Position");
     ImGui::TextColored(GOLD_DIM, "Ctrl+click a slider to type a value.");
     if (BeginSettingsTable("pos_tbl")) {
-        int hudX = Settings::g_hudX;
-        RowLabel("X");
-        if (ImGui::SliderInt("##posx", &hudX, 0, 1280)) {
-            TearsWidget::SetPosition(hudX, Settings::g_hudY);
-        }
-        if (ImGui::IsItemDeactivatedAfterEdit()) {
-            Settings::SaveToINI();
-        }
-
-        int hudY = Settings::g_hudY;
-        RowLabel("Y");
-        if (ImGui::SliderInt("##posy", &hudY, 0, 720)) {
-            TearsWidget::SetPosition(Settings::g_hudX, hudY);
-        }
-        if (ImGui::IsItemDeactivatedAfterEdit()) {
-            Settings::SaveToINI();
-        }
+        int x = Settings::g_hudX;
+        if (IntSliderRow("X", "##posx", x, 0, 1280, "%d")) TearsWidget::SetPosition(x, Settings::g_hudY);
+        int y = Settings::g_hudY;
+        if (IntSliderRow("Y", "##posy", y, 0, 720, "%d")) TearsWidget::SetPosition(Settings::g_hudX, y);
         ImGui::EndTable();
     }
     if (ImGui::Button("Reset Position")) {
@@ -541,76 +262,48 @@ void __stdcall UI::RenderUIKeybind() {
         for (int i = 0; i < Settings::SURVIVAL_WIDGET_COUNT; ++i) {
             if (!SurvivalWidgets::IsNeedAvailable(i)) continue;
 
-            const char* label = SurvivalWidgets::GetLabel(i);
             ImGui::PushID(i);
-
             if (BeginSettingsTable("survival_tbl")) {
-                bool enabled = Settings::g_survivalWidgetEnabled[i];
-                RowLabel(label);
-                if (ImGui::Checkbox("##enabled", &enabled)) {
-                    Settings::g_survivalWidgetEnabled[i] = enabled;
-                    Settings::SaveToINI();
+                if (CheckboxRow(SurvivalWidgets::GetLabel(i), "##enabled", Settings::g_survivalWidgetEnabled[i])) {
                     SurvivalWidgets::Refresh();
                 }
-
                 if (Settings::g_survivalWidgetEnabled[i]) {
                     int scale = Settings::g_survivalWidgetScale[i];
-                    RowLabel("Scale");
-                    if (ImGui::SliderInt("##sscale", &scale, 10, 150, "%d%%")) {
-                        SurvivalWidgets::SetScale(i, scale);
-                    }
-                    if (ImGui::IsItemDeactivatedAfterEdit()) {
-                        Settings::SaveToINI();
-                    }
-
+                    if (IntSliderRow("Scale", "##sscale", scale, 10, 150, "%d%%")) SurvivalWidgets::SetScale(i, scale);
                     int x = Settings::g_survivalWidgetX[i];
-                    RowLabel("X");
-                    if (ImGui::SliderInt("##sposx", &x, 0, 1280)) {
-                        SurvivalWidgets::SetPosition(i, x, Settings::g_survivalWidgetY[i]);
-                    }
-                    if (ImGui::IsItemDeactivatedAfterEdit()) {
-                        Settings::SaveToINI();
-                    }
-
+                    if (IntSliderRow("X", "##sposx", x, 0, 1280, "%d")) SurvivalWidgets::SetPosition(i, x, Settings::g_survivalWidgetY[i]);
                     int y = Settings::g_survivalWidgetY[i];
-                    RowLabel("Y");
-                    if (ImGui::SliderInt("##sposy", &y, 0, 720)) {
-                        SurvivalWidgets::SetPosition(i, Settings::g_survivalWidgetX[i], y);
-                    }
-                    if (ImGui::IsItemDeactivatedAfterEdit()) {
-                        Settings::SaveToINI();
-                    }
+                    if (IntSliderRow("Y", "##sposy", y, 0, 720, "%d")) SurvivalWidgets::SetPosition(i, Settings::g_survivalWidgetX[i], y);
                 }
                 ImGui::EndTable();
             }
-
             ImGui::PopID();
         }
     }
 
     Heading("Keybinds");
 
-    bool useFillPower = Settings::g_useFillPower;
-    if (ImGui::Checkbox("Fill via Power", &useFillPower)) {
-        Settings::g_useFillPower = useFillPower;
-        if (useFillPower) TearsWidget::CancelBinding();
-        Settings::SaveToINI();
-        Hotkeys::RefreshBindings();
-        WaterskinUtils::SyncFillPower();
-    }
-    ImGui::TextColored(GOLD_DIM, "Adds a Castable Power and Disables the Hotkey");
-
     if (BeginSettingsTable("keybind_tbl")) {
+        static constexpr const char* fillMethodHints[] = {"Press the key at water to fill.", "Cast the power at water to fill.", "Use an empty waterskin or bottle at water to fill."};
+        int fillMethod = static_cast<int>(Settings::g_fillMethod);
+        RowLabel("Fill Method");
+        if (ImGui::Combo("##fillmethod", &fillMethod, Settings::FILL_METHOD_NAMES, 3)) {
+            Settings::g_fillMethod = static_cast<Settings::FillMethod>(fillMethod);
+            if (Settings::g_fillMethod != Settings::FillMethod::Hotkey) TearsWidget::CancelBinding();
+            Settings::SaveToINI();
+            WaterskinUtils::SyncFillPower();
+        }
+        ImGui::TextColored(GOLD_DIM, "%s", fillMethodHints[static_cast<int>(Settings::g_fillMethod)]);
+
+        const bool useHotkey = Settings::g_fillMethod == Settings::FillMethod::Hotkey;
         const bool awaitingFill = TearsWidget::IsAwaitingBinding() && TearsWidget::GetPendingBinding() == "fill";
         RowLabel("Drink / Fill at Water");
-        if (Settings::g_useFillPower) {
-            ImGui::TextUnformatted("Using Power");
-        } else if (awaitingFill) {
-            ImGui::TextUnformatted("press a key...");
+        if (!useHotkey) {
+            ImGui::TextUnformatted(Settings::g_fillMethod == Settings::FillMethod::Power ? "Using Power" : "Using Waterskin");
         } else {
-            ImGui::TextUnformatted(Settings::GetKeyName(Settings::g_fillKey).c_str());
+            ImGui::TextUnformatted(awaitingFill ? "press a key..." : Settings::GetKeyName(Settings::g_fillKey).c_str());
         }
-        if (!Settings::g_useFillPower) {
+        if (useHotkey) {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             if (awaitingFill) {
@@ -620,16 +313,9 @@ void __stdcall UI::RenderUIKeybind() {
             }
         }
 
-        const bool awaitingToggle =
-            TearsWidget::IsAwaitingBinding() && TearsWidget::GetPendingBinding() == "togglewidget";
+        const bool awaitingToggle = TearsWidget::IsAwaitingBinding() && TearsWidget::GetPendingBinding() == "togglewidget";
         RowLabel("Toggle Widget");
-        if (awaitingToggle) {
-            ImGui::TextUnformatted("press a key...");
-        } else {
-            ImGui::TextUnformatted(Settings::g_toggleWidgetKey == 0
-                                       ? "Unbound"
-                                       : Settings::GetKeyName(Settings::g_toggleWidgetKey).c_str());
-        }
+        ImGui::TextUnformatted(awaitingToggle ? "press a key..." : Settings::GetKeyName(Settings::g_toggleWidgetKey).c_str());
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         if (awaitingToggle) {
@@ -640,7 +326,6 @@ void __stdcall UI::RenderUIKeybind() {
             if (ImGui::Button("Unbind##toggle")) {
                 Settings::g_toggleWidgetKey = 0;
                 Settings::SaveToINI();
-                Hotkeys::RefreshBindings();
             }
         }
         ImGui::EndTable();
