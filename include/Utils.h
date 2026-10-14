@@ -2,7 +2,7 @@
 
 namespace WaterskinUtils {
     void Initialize();
-    void TryFill();
+    void TryFill(RE::TESBoundObject* skin = nullptr);
     [[nodiscard]] bool TryFillFromActivator(RE::TESObjectREFR* activatedRef, RE::TESObjectREFR* actionRef);
     [[nodiscard]] bool IsNearWater();
     void QueueStartingWaterskin();

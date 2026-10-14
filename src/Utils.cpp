@@ -84,6 +84,15 @@ namespace WaterskinUtils {
             return false;
         }
 
+        RE::TESBoundObject* FindRefillableSkinByID(RE::FormID formID) {
+            for (auto* form : {g_trackedBottleForms[1], g_trackedBottleForms[2], g_trackedBottleForms[3], g_dirtyBottleForms[1], g_dirtyBottleForms[2], g_foulBottleForms[1], g_foulBottleForms[2]}) {
+                if (form && form->GetFormID() == formID) {
+                    return form;
+                }
+            }
+            return nullptr;
+        }
+
         RE::TESBoundObject* FindWaterItem(RE::FormID formID) {
             for (auto* form : g_trackedBottleForms) {
                 if (form && form->GetFormID() == formID) {
@@ -272,7 +281,7 @@ namespace WaterskinUtils {
             }
         }
 
-        void CommitWaterskinFill() {
+        void CommitWaterskinFill(RE::TESBoundObject* preferred) {
             auto* player = RE::PlayerCharacter::GetSingleton();
             if (!player) {
                 return;
@@ -281,7 +290,7 @@ namespace WaterskinUtils {
             const bool dirty = Settings::g_enableDirtyWater && WaterNeedManager::GetSingleton()->IsSystemEnabled();
             const bool foul = dirty && IsInFoulRegion();
 
-            auto* refillable = FindRefillableSkinForm(player);
+            auto* refillable = preferred && player->GetItemCount(preferred) > 0 ? preferred : FindRefillableSkinForm(player);
             if (refillable) {
                 RE::TESBoundObject* targetFull = g_trackedBottleForms[0];
                 if (dirty) {
@@ -326,11 +335,21 @@ namespace WaterskinUtils {
             return true;
         }
 
-        // waterskin fill method, used from the inventory so no idle or camera change
-        void FillFromItem(RE::PlayerCharacter* player) {
-            if (CanFill(player)) {
-                CommitWaterskinFill();
+        // close the menu first so the animation plays in the world
+        void FillFromItem(RE::PlayerCharacter* player, RE::TESBoundObject* skin) {
+            if (!CanFill(player)) {
+                return;
             }
+
+            auto* queue = RE::UIMessageQueue::GetSingleton();
+            for (const auto menu : {RE::InventoryMenu::MENU_NAME, RE::FavoritesMenu::MENU_NAME, RE::TweenMenu::MENU_NAME}) {
+                queue->AddMessage(menu, RE::UI_MESSAGE_TYPE::kHide, nullptr);
+            }
+
+            std::thread([skin] {
+                std::this_thread::sleep_for(500ms);
+                SKSE::GetTaskInterface()->AddTask([skin] { TryFill(skin); });
+            }).detach();
         }
 
         RE::PlayerCharacter* GetReadyPlayer() {
@@ -345,22 +364,22 @@ namespace WaterskinUtils {
         bool ResolveWaterskinForms(bool logSuccess, bool logFailure) {
             bool allTrackedResolved = true;
             for (std::size_t i = 0; i < TRACKED_BOTTLE_FORM_IDS.size(); ++i) {
-                g_trackedBottleForms[i] = GetForm<RE::TESBoundObject>(TRACKED_BOTTLE_FORM_IDS[i]);
+                g_trackedBottleForms[i] = GetForm<RE::AlchemyItem>(TRACKED_BOTTLE_FORM_IDS[i]);
                 if (!g_trackedBottleForms[i]) {
                     allTrackedResolved = false;
                 }
             }
 
             for (std::size_t i = 0; i < DIRTY_BOTTLE_FORM_IDS.size(); ++i) {
-                g_dirtyBottleForms[i] = GetForm<RE::TESBoundObject>(DIRTY_BOTTLE_FORM_IDS[i]);
-                g_foulBottleForms[i] = GetForm<RE::TESBoundObject>(FOUL_BOTTLE_FORM_IDS[i]);
+                g_dirtyBottleForms[i] = GetForm<RE::AlchemyItem>(DIRTY_BOTTLE_FORM_IDS[i]);
+                g_foulBottleForms[i] = GetForm<RE::AlchemyItem>(FOUL_BOTTLE_FORM_IDS[i]);
             }
 
             for (std::size_t i = 0; i < EMPTY_BOTTLE_FORM_IDS.size(); ++i) {
-                g_emptyReusableBottles[i] = GetForm<RE::TESBoundObject>(EMPTY_BOTTLE_FORM_IDS[i]);
-                g_bottledWaterForms[i] = GetForm<RE::TESBoundObject>(BOTTLED_WATER_FORM_IDS[i]);
-                g_bottledWaterDirtyForms[i] = GetForm<RE::TESBoundObject>(BOTTLED_DIRTY_FORM_IDS[i]);
-                g_bottledWaterFoulForms[i] = GetForm<RE::TESBoundObject>(BOTTLED_FOUL_FORM_IDS[i]);
+                g_emptyReusableBottles[i] = GetForm<RE::AlchemyItem>(EMPTY_BOTTLE_FORM_IDS[i]);
+                g_bottledWaterForms[i] = GetForm<RE::AlchemyItem>(BOTTLED_WATER_FORM_IDS[i]);
+                g_bottledWaterDirtyForms[i] = GetForm<RE::AlchemyItem>(BOTTLED_DIRTY_FORM_IDS[i]);
+                g_bottledWaterFoulForms[i] = GetForm<RE::AlchemyItem>(BOTTLED_FOUL_FORM_IDS[i]);
             }
 
             if (allTrackedResolved) {
@@ -608,7 +627,7 @@ namespace WaterskinUtils {
                     AddTrackedBottle(player, g_emptyReusableBottles[i], 1);
                     QueueInventoryMenuRefresh();
                     if (Settings::g_fillMethod == Settings::FillMethod::Item) {
-                        FillFromItem(player);
+                        FillFromItem(player, nullptr);
                         return true;
                     }
                     TearsWidget::ShowNotification(Localization::Get("$TOK_BottleEmpty").c_str());
@@ -653,17 +672,9 @@ namespace WaterskinUtils {
         ResolveWaterskinForms(true, false);
     }
 
-    void TryFill() {
-        if (!WaterNeedManager::GetSingleton()->IsSystemEnabled()) {
-            return;
-        }
-
+    void TryFill(RE::TESBoundObject* skin) {
         auto* player = RE::PlayerCharacter::GetSingleton();
-        if (!player || !EnsureWaterskinFormsReady()) {
-            return;
-        }
-
-        if (!CanFill(player)) {
+        if (!WaterNeedManager::GetSingleton()->IsSystemEnabled() || !player || !EnsureWaterskinFormsReady() || !CanFill(player)) {
             return;
         }
 
@@ -671,35 +682,22 @@ namespace WaterskinUtils {
             return;
         }
 
-        static auto* idlePickupGround = RE::TESForm::LookupByID<RE::TESIdleForm>(IDLE_PICKUP_GROUND_FORM_ID);
-        static auto* idleStopLoose = RE::TESForm::LookupByID<RE::TESIdleForm>(IDLE_STOP_LOOSE_FORM_ID);
-
         auto* camera = RE::PlayerCamera::GetSingleton();
-        const bool wasFirstPerson = camera && camera->IsInFirstPerson();
+        const bool wasFirstPerson = camera->IsInFirstPerson();
         if (wasFirstPerson) {
             camera->ForceThirdPerson();
         }
-        PlayIdleOnPlayer(idlePickupGround);
+        PlayIdleOnPlayer(RE::TESForm::LookupByID<RE::TESIdleForm>(IDLE_PICKUP_GROUND_FORM_ID));
 
-        std::thread([wasFirstPerson] {
+        std::thread([skin, wasFirstPerson] {
             auto* task = SKSE::GetTaskInterface();
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            if (task) {
-                task->AddTask([] { CommitWaterskinFill(); });
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            if (task) {
-                task->AddTask([] { PlayIdleOnPlayer(idleStopLoose); });
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            if (task) {
-                task->AddTask([wasFirstPerson] {
-                    if (wasFirstPerson) {
-                        if (auto* restoreCamera = RE::PlayerCamera::GetSingleton()) {
-                            restoreCamera->ForceFirstPerson();
-                        }
-                    }
-                });
+            std::this_thread::sleep_for(1s);
+            task->AddTask([skin] { CommitWaterskinFill(skin); });
+            std::this_thread::sleep_for(1s);
+            task->AddTask([] { PlayIdleOnPlayer(RE::TESForm::LookupByID<RE::TESIdleForm>(IDLE_STOP_LOOSE_FORM_ID)); });
+            std::this_thread::sleep_for(1s);
+            if (wasFirstPerson) {
+                task->AddTask([] { RE::PlayerCamera::GetSingleton()->ForceFirstPerson(); });
             }
             g_fillAnimationActive.store(false);
         }).detach();
@@ -841,16 +839,22 @@ namespace WaterskinUtils {
         }
 
         if (EnsureWaterskinFormsReady(false)) {
+            if (Settings::g_fillMethod == Settings::FillMethod::Item) {
+                auto* skin = FindRefillableSkinByID(baseObjectFormID);
+                if (skin && (skin == g_trackedBottleForms[3] || IsNearWater())) {
+                    AddTrackedBottle(player, skin, 1);
+                    QueueInventoryMenuRefresh();
+                    FillFromItem(player, skin);
+                    return;
+                }
+            }
+
             const auto trackedBottleIndex = FindTrackedBottleIndexByFormID(baseObjectFormID);
 
             if (trackedBottleIndex.has_value()) {
                 if (*trackedBottleIndex >= g_trackedBottleForms.size() - 1) {
                     AddTrackedBottle(player, g_trackedBottleForms.back(), 1);
                     QueueInventoryMenuRefresh();
-                    if (Settings::g_fillMethod == Settings::FillMethod::Item) {
-                        FillFromItem(player);
-                        return;
-                    }
                     TearsWidget::ShowNotification(Localization::Get("$TOK_WaterskinEmpty").c_str());
                     TearsWidget::Refresh();
                     return;
