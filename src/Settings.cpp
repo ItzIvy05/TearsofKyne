@@ -212,9 +212,9 @@ namespace Settings {
                     g_toggleWidgetKey = parsedKey;
                 }
             } else if (key == "HudX") {
-                ReadNumber(value, g_hudX, 0, INT_MAX);
+                ReadNumber(value, g_hudX, INT_MIN, INT_MAX);
             } else if (key == "HudY") {
-                ReadNumber(value, g_hudY, 0, INT_MAX);
+                ReadNumber(value, g_hudY, INT_MIN, INT_MAX);
             } else if (key == "WidgetScale") {
                 ReadNumber(value, g_widgetScale, 10, 150);
             } else if (key == "bHudVisible") {
@@ -268,9 +268,9 @@ namespace Settings {
                     if (key == base + "Enabled") {
                         g_survivalWidgetEnabled[i] = ParseBool(value, false);
                     } else if (key == base + "X") {
-                        ReadNumber(value, g_survivalWidgetX[i], 0, INT_MAX);
+                        ReadNumber(value, g_survivalWidgetX[i], INT_MIN, INT_MAX);
                     } else if (key == base + "Y") {
-                        ReadNumber(value, g_survivalWidgetY[i], 0, INT_MAX);
+                        ReadNumber(value, g_survivalWidgetY[i], INT_MIN, INT_MAX);
                     } else if (key == base + "Scale") {
                         ReadNumber(value, g_survivalWidgetScale[i], 10, 150);
                     }

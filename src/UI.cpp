@@ -100,6 +100,12 @@ namespace {
         if (ImGui::IsItemDeactivatedAfterEdit()) Settings::SaveToINI();
         return changed;
     }
+
+    // the HUD stage is wider than 1280x720 on ultrawide, so its left edge goes negative
+    RE::GRectF GetStageRect() {
+        auto movie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME);
+        return movie ? movie->GetVisibleFrameRect() : RE::GRectF{0.0f, 0.0f, 1280.0f, 720.0f};
+    }
 }
 
 void UI::Register() {
@@ -243,11 +249,12 @@ void __stdcall UI::RenderUIKeybind() {
 
     Heading("Position");
     ImGui::TextColored(GOLD_DIM, "Ctrl+click a slider to type a value.");
+    const auto stage = GetStageRect();
     if (BeginSettingsTable("pos_tbl")) {
         int x = Settings::g_hudX;
-        if (IntSliderRow("X", "##posx", x, 0, 1280, "%d")) TearsWidget::SetPosition(x, Settings::g_hudY);
+        if (IntSliderRow("X", "##posx", x, static_cast<int>(stage.left), static_cast<int>(stage.right), "%d")) TearsWidget::SetPosition(x, Settings::g_hudY);
         int y = Settings::g_hudY;
-        if (IntSliderRow("Y", "##posy", y, 0, 720, "%d")) TearsWidget::SetPosition(Settings::g_hudX, y);
+        if (IntSliderRow("Y", "##posy", y, static_cast<int>(stage.top), static_cast<int>(stage.bottom), "%d")) TearsWidget::SetPosition(Settings::g_hudX, y);
         ImGui::EndTable();
     }
     if (ImGui::Button("Reset Position")) {
@@ -271,9 +278,9 @@ void __stdcall UI::RenderUIKeybind() {
                     int scale = Settings::g_survivalWidgetScale[i];
                     if (IntSliderRow("Scale", "##sscale", scale, 10, 150, "%d%%")) SurvivalWidgets::SetScale(i, scale);
                     int x = Settings::g_survivalWidgetX[i];
-                    if (IntSliderRow("X", "##sposx", x, 0, 1280, "%d")) SurvivalWidgets::SetPosition(i, x, Settings::g_survivalWidgetY[i]);
+                    if (IntSliderRow("X", "##sposx", x, static_cast<int>(stage.left), static_cast<int>(stage.right), "%d")) SurvivalWidgets::SetPosition(i, x, Settings::g_survivalWidgetY[i]);
                     int y = Settings::g_survivalWidgetY[i];
-                    if (IntSliderRow("Y", "##sposy", y, 0, 720, "%d")) SurvivalWidgets::SetPosition(i, Settings::g_survivalWidgetX[i], y);
+                    if (IntSliderRow("Y", "##sposy", y, static_cast<int>(stage.top), static_cast<int>(stage.bottom), "%d")) SurvivalWidgets::SetPosition(i, Settings::g_survivalWidgetX[i], y);
                 }
                 ImGui::EndTable();
             }
